@@ -1,0 +1,19 @@
+Checks: >
+  -*,
+  bugprone-*,
+  performance-*,
+  google-*,
+  readability-braces-around-statements,
+  readability-use-anyofallof,
+  readability-use-std-min-max,
+  readability-named-parameter,
+  readability-math-missing-parentheses,
+  modernize-use-designated-initializers,
+  modernize-use-nodiscard,
+  modernize-avoid-c-style-cast,
+  -bugprone-exception-escape,
+  -google-readability-todo
+
+WarningsAsErrors: ''
+HeaderFilterRegex: '^.*/(include|src)/timeball/.*\.(hpp|cpp)$'
+FormatStyle: file

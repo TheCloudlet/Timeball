@@ -1,0 +1,33 @@
+# A hand-written stand-in for a real commit log (see issue #34), in the
+# core port event language timeball/core_port_trace.hpp reads: I retires instructions,
+# L and S load and store. examples/transcript_replay.cpp reads this file
+# and replays it, unchanged, against two chip graphs.
+#
+# The shape: five passes over the same four 64-byte lines — a loop touching
+# a small working set repeatedly, the pattern that tells apart a cache that
+# holds it from one that does not.
+I 5
+L 0x0000
+L 0x0040
+L 0x0080
+L 0x00c0
+I 5
+L 0x0000
+L 0x0040
+L 0x0080
+L 0x00c0
+I 5
+L 0x0000
+L 0x0040
+L 0x0080
+L 0x00c0
+I 5
+L 0x0000
+L 0x0040
+L 0x0080
+L 0x00c0
+I 5
+L 0x0000
+L 0x0040
+L 0x0080
+L 0x00c0
