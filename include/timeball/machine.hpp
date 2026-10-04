@@ -19,8 +19,8 @@
 // One cache in front of one DRAM, plus an EventEngine and a CorePort. Geometry
 // is the template arguments. DRAM latency and core port costs are
 // MachineConfig. Devices are added with Attach. For several regions, pass an
-// AddressMap's entry node to the second constructor. Memory() is only valid for
-// the first.
+// AddressMap's entry node to the second constructor. MemoryEntry() is only
+// valid for the first.
 
 namespace timeball {
 
@@ -53,11 +53,12 @@ class Machine {
 
   [[nodiscard]] CorePort& GetCorePort() { return core_port_; }
   [[nodiscard]] EventEngine& Engine() { return engine_; }
-  // The cache in front of DRAM. Asserts if this Machine was given a
-  // host-supplied topology; that host already has the entry node.
-  [[nodiscard]] AccessNode& Memory() {
+  // The cache in front of DRAM, which is the entry of this machine's graph.
+  // Asserts if this Machine was given a host-supplied topology; that host
+  // already has the entry node.
+  [[nodiscard]] AccessNode& MemoryEntry() {
     assert(cache_.has_value() &&
-           "Memory() has no node to return: this Machine was constructed "
+           "MemoryEntry() has no node to return: this Machine was constructed "
            "with a host-supplied memory topology instead of one of its own");
     return *cache_;
   }
@@ -65,7 +66,7 @@ class Machine {
  private:
   // Empty (and costing nothing beyond a flag each) when the host supplied its
   // own memory topology instead.
-  std::optional<MainMemory<"DRAM">> dram_;
+  std::optional<Memory<"DRAM">> dram_;
   std::optional<
       Cache<CacheName, Sets, Ways, BlockSize, ReplacePolicy, HitLatency>>
       cache_;

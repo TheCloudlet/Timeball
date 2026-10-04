@@ -77,7 +77,7 @@ If the memory graph looks like this:
 |     | [0x80000000, 0x80010000)                                               |
 |     v                                                                        |
 |  +---------------------------+                                               |
-|  | Scratchpad                |                                               |
+|  | ScratchPad                |                                               |
 |  | SPM, latency 5            |                                               |
 |  | no tags, no misses        |                                               |
 |  +---------------------------+                                               |
@@ -101,8 +101,8 @@ on the core port, and a store to START launches the work.
 using namespace timeball;
 
 // Nodes are constructed separately and wired together at run time.
-MainMemory<"DRAM"> dram(100);
-Scratchpad<"SPM"> spm(5);
+Memory<"DRAM"> dram(100);
+Memory<"SPM"> spm(5);
 Cache<"L1", 64, 8, 64, LRUPolicy, 4> l1(&dram);
 
 // Memory only. An address here is a load or a store, never a device register.
@@ -250,17 +250,16 @@ is not one: it originates accesses, it does not serve them.
 | Node         | Role        | Models                                            |
 | ------------ | ----------- | ------------------------------------------------- |
 | `Cache`      | Transformer | Tags, associativity, replacement; may forward     |
-| `Scratchpad` | Target      | Fixed latency, no tags, no misses, no replacement |
-| `MainMemory` | Target      | Backing store with a fixed latency                |
+| `Memory` | Target      | Fixed latency, no tags, no misses. DRAM and a scratchpad are two of these |
 | `AddressMap` | Transformer | Routes by address; adds no latency of its own     |
 | `Initiator`  | Initiator   | Where accesses originate; in order, one at a time |
 
 A new node type says what serving an access costs it and where the access goes
 next (`Serve`), and optionally what changes once the data arrives (`Complete`,
 such as a fill). It needs only `timeball/node.hpp` — the vocabulary, with
-nothing about any particular kind of node. The scratchpad is the proof this
-works: it shares almost no implementation with a cache, and adding it required
-no change to the node interface.
+nothing about any particular kind of node. `Memory` is the proof this
+works: it shares almost no implementation with a cache, and a scratchpad region
+is the same node given its own latency.
 
 ## Quick start
 
@@ -293,7 +292,7 @@ spun.
 `timeball/machine.hpp`'s `Machine` template is that wiring, written once: a
 host supplies the cache's compile-time geometry as template
 arguments and its own runtime numbers — DRAM latency, the core port's cost table —
-as one `MachineConfig`, and gets a `MainMemory` + `Cache` + `EventEngine` +
+as one `MachineConfig`, and gets a `Memory` + `Cache` + `EventEngine` +
 `CorePort`, already connected.
 
 ```cpp
@@ -477,8 +476,7 @@ timeball/
 │   ├── record_query.hpp    # filter, group, and fold over records
 │   ├── names.hpp           # Compile-time node names
 │   ├── cache.hpp           # Cache node
-│   ├── memory.hpp          # Backing memory node
-│   ├── scratchpad.hpp      # Software-managed memory node
+│   ├── memory.hpp          # Fixed-latency memory. DRAM and a scratchpad
 │   ├── address_map.hpp     # Routes an access by address
 │   ├── event_store.hpp     # SQLite sink for the engine's records (opt-in)
 │   ├── checking_sink.hpp   # A sink that verifies the engine's own rule

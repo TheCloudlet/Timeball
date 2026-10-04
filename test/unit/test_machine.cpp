@@ -21,7 +21,7 @@ using TinyMachine = Machine<"L1", 1, 1, 64, LRUPolicy, 2>;
 
 TEST(Machine, WiresACompleteMachineACoreCanDriveThroughItsCorePort) {
   // Geometry (template args) and runtime numbers (MachineConfig) are all a host
-  // supplies; everything else — MainMemory, Cache, EventEngine, CorePort — is
+  // supplies; everything else — Memory, Cache, EventEngine, CorePort — is
   // wired by Machine itself.
   TinyMachine machine({.dram_latency = 100, .core_port = {.cpi = 1}});
   CorePort& core_port = machine.GetCorePort();
@@ -63,13 +63,13 @@ TEST(Machine, AttachWiresAnMmioDeviceThroughToItsCorePort) {
   EXPECT_EQ(core_port.DeviceBusyUntil(mac), 42u);
 }
 
-TEST(Machine, MemoryIsTheNodeADirectAccessCanIssueInto) {
+TEST(Machine, MemoryEntryIsTheNodeADirectAccessCanIssueInto) {
   // A host that also wants a plain Initiator (no CorePort involved for that
-  // path) issues directly into Machine::Memory() — the same cache the CorePort
-  // uses for its own non-MMIO loads and stores.
+  // path) issues directly into Machine::MemoryEntry() — the same cache the
+  // CorePort uses for its own non-MMIO loads and stores.
   TinyMachine machine({.dram_latency = 100});
   Initiator core(machine.Engine(), 0);
-  core.Issue(machine.Memory(), 0x3000, AccessType::kLoad);
+  core.Issue(machine.MemoryEntry(), 0x3000, AccessType::kLoad);
   RunChecked(machine.Engine());
   EXPECT_EQ(core.BusyUntil(), 102u);  // 2 (hit latency) + 100 (DRAM)
 }
@@ -79,9 +79,9 @@ TEST(Machine, AHostSuppliedTopologyRoutesThroughAnAddressMap) {
   // outside Machine, and hands over the entry node. Machine still owns only the
   // EventEngine and CorePort — the geometry TinyMachine was instantiated with
   // goes unused for this constructor.
-  MainMemory<"Far"> far(100);
+  Memory<"Far"> far(100);
   Cache<"Region1", 1, 1, 64, LRUPolicy, 2> region1(&far);
-  Scratchpad<"Region2"> region2(5);
+  Memory<"Region2"> region2(5);
   AddressMap map;
   map.Map(0x0000'0000, 0x8000'0000, &region1);
   map.Map(0x8000'0000, 0x8000'1000, &region2);

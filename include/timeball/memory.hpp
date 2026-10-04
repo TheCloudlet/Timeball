@@ -4,7 +4,6 @@
 #define TIMEBALL_MEMORY_HPP
 
 #include <cstddef>
-#include <cstdint>
 #include <string_view>
 
 #include "timeball/names.hpp"
@@ -12,13 +11,15 @@
 
 namespace timeball {
 
-// Backing memory. Fixed latency, always hits, held for that service time.
-template <FixedString Name = "MainMemory">
-class MainMemory : public AccessNode {
+// Fixed-latency memory. Always served here: no tags, no misses, no forward.
+// A DRAM and a scratchpad are two of these. The name, the latency, and the
+// wiring differ. A second class does not.
+template <FixedString Name = "Memory">
+class Memory : public AccessNode {
   Cycle latency_;
 
  public:
-  explicit MainMemory(Cycle lat = 100) : latency_(lat) {}
+  explicit Memory(Cycle lat = 100) : latency_(lat) {}
 
   [[nodiscard]] std::string_view NodeName() const override {
     return Name.value;

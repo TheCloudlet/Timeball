@@ -14,6 +14,5 @@
 #include "timeball/memory.hpp"
 #include "timeball/names.hpp"
 #include "timeball/node.hpp"
-#include "timeball/scratchpad.hpp"
 
 #endif  // TIMEBALL_TIMEBALL_HPP

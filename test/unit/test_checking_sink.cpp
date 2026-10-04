@@ -28,7 +28,7 @@ Record Rec(EventId op, std::string_view resource, Cycle arrival, Cycle start,
 TEST(CheckingSink, PassesOnAWellFormedRun) {
   // A real run, through real nodes and a mix of static operations and memory
   // accesses: the checker must raise nothing against the engine's own output.
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   Cache<"L1", 4, 2, 64, LRUPolicy, 2> l1(&dram);
   EventEngine engine;
   const ResourceId mac = engine.AddResource({"mac", 1});
@@ -51,7 +51,7 @@ TEST(CheckingSink, PassesOnManyAgentsSharingCachesAndAWindowedRun) {
   // The scenario several agents contending at shared levels, run once straight
   // through and once in narrow windows: the richest case the engine handles,
   // and the one a real defect would most likely show up in.
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   Cache<"L2", 16, 4, 64, LRUPolicy, 10> l2(&dram);
   Cache<"L1a", 4, 2, 64, LRUPolicy, 2> l1a(&l2);
   Cache<"L1b", 4, 2, 64, LRUPolicy, 2> l1b(&l2);

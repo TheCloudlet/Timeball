@@ -43,7 +43,7 @@ constexpr Cycle kHitSpacing = 20;
 constexpr Cycle kMissSpacing = 150;
 
 struct Hierarchy {
-  MainMemory<"DRAM"> dram{100};
+  Memory<"DRAM"> dram{100};
   Cache<"L2", 512, 8, 64, LRUPolicy, 10> l2{&dram};
   Cache<"L1a", 64, 8, 64, LRUPolicy, 4> l1a{&l2};
   Cache<"L1b", 64, 8, 64, LRUPolicy, 4> l1b{&l2};

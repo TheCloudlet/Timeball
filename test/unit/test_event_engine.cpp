@@ -91,7 +91,7 @@ TEST(EventEngine, DelayedDependencyNeedsRememberedCompletion) {
 TEST(EventEngine, BoundAccessSharesAHostOperationResource) {
   EventEngine engine;
   const ResourceId fabric = engine.AddResource({"FABRIC", 1});
-  MainMemory<"FABRIC"> refill{3};
+  Memory<"FABRIC"> refill{3};
   engine.BindAccessNode(refill, fabric);
   engine.Submit({"DMA", fabric, 0, 5, {}});
   engine.SubmitAccess(refill, {.addr = 0x1000, .initiator_id = 1});
@@ -105,7 +105,7 @@ TEST(EventEngine, BoundAccessSharesAHostOperationResource) {
 }
 
 TEST(EventEngine, CacheHintDoesNotTouchReplacementAndFenceInvalidates) {
-  MainMemory<"memory"> memory{16};
+  Memory<"memory"> memory{16};
   Cache<"icache", 1, 2, 512, LRUPolicy, 1, true> cache(&memory);
   const auto access = [&](uint64_t addr, AccessType type) {
     const Request request{.addr = addr, .type = type, .initiator_id = 0};
@@ -123,7 +123,7 @@ TEST(EventEngine, CacheHintDoesNotTouchReplacementAndFenceInvalidates) {
 }
 
 TEST(EventEngine, FenceCannotDiscardDirtyDataCacheLine) {
-  MainMemory<"memory"> memory{16};
+  Memory<"memory"> memory{16};
   Cache<"data", 1, 1, 512> cache(&memory);
   const Request store{
       .addr = 0x1000, .type = AccessType::kStore, .initiator_id = 0};
@@ -257,7 +257,7 @@ TEST(EventEngine, ZeroCostDependencyReleasesBeforeSameCycleContenders) {
 }
 
 TEST(EventEngine, NodeAccessesComposeWithQueuedAtomicWorkAcrossWindows) {
-  MainMemory<"memory"> memory(3);
+  Memory<"memory"> memory(3);
   Cache<"cache", 1, 2, 64, LRUPolicy, 1> cache(&memory);
   EventEngine engine;
   const ResourceId a = engine.AddResource({"a", 1});
@@ -323,7 +323,7 @@ TEST(EventEngine, OperationsAndAccessesShareOneTimeline) {
   // dispatches, the dispatched work loads its operand through a cache, and a
   // MAC array computes once the operand has arrived. Static costs and a node's
   // dynamic cost compose through the same dependencies.
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   Cache<"L1", 1, 2, 64, LRUPolicy, 4> l1(&dram);
   EventEngine engine;
   const ResourceId core = engine.AddResource({"core", 1});
@@ -353,7 +353,7 @@ TEST(EventEngine, OperationsAndAccessesShareOneTimeline) {
 }
 
 TEST(EventEngine, CompletionFillsCacheBeforeAnArrivalAtTheSameCycle) {
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   Cache<"L1", 1, 1, 64, LRUPolicy, 1> l1(&dram);
   EventEngine engine;
 
@@ -376,7 +376,7 @@ TEST(EventEngine, CompletionFillsCacheBeforeAnArrivalAtTheSameCycle) {
 // `window` cycles (0: all at once), run window by window. Returns every record,
 // one line each.
 static std::vector<std::string> SharedMemoryRun(Cycle window) {
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   Cache<"L2", 16, 4, 64, LRUPolicy, 10> l2(&dram);
   Cache<"L1a", 4, 2, 64, LRUPolicy, 2> l1a(&l2);
   Cache<"L1b", 4, 2, 64, LRUPolicy, 2> l1b(&l2);
@@ -548,7 +548,7 @@ TEST(EventEngine, NothingMayBeSubmittedBeforeTheHorizon) {
 // cycles, 20 accesses each. The working set fits the cache and accesses are
 // spaced so the memory keeps up with the cold misses.
 static std::size_t PeakInFlight(std::uint64_t windows) {
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   Cache<"L1", 64, 4, 64, LRUPolicy, 2> l1(&dram);
   EventEngine engine;
   CheckingSink checker;

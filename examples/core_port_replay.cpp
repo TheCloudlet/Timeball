@@ -81,7 +81,7 @@ struct Hardware {
 // the recorded program took on that hardware. No functional simulator runs here
 // — only the recorded calls.
 Cycle Replay(const std::vector<CorePortEvent>& events, const Hardware& hw) {
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   CommandDevice mac = MacArray(hw.macs_per_cycle);
   EventEngine engine;
   CorePort core_port(engine, dram, {.cpi = 1, .mmio_cycles = hw.mmio_cycles});
@@ -95,7 +95,7 @@ Cycle Replay(const std::vector<CorePortEvent>& events, const Hardware& hw) {
 
 int main() {
   // ---- Record the (fake) functional simulator's calls, once -------------
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   CommandDevice mac = MacArray(/*macs_per_cycle=*/64);
   EventEngine engine;
   CorePort core_port(engine, dram, {.cpi = 1, .mmio_cycles = 2});

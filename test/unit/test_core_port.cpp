@@ -32,7 +32,7 @@ TEST(CorePort, CoreTimeIsItsInstructionsAndItsAccessesInOrder) {
   // A host that hooks only its load/store path and its instruction count gets
   // the core's time: compute at the CPI, and each access waiting for the one
   // before it.
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   EventEngine engine;
   CorePort core_port(engine, dram, {.cpi = 1});
 
@@ -45,7 +45,7 @@ TEST(CorePort, CoreTimeIsItsInstructionsAndItsAccessesInOrder) {
 }
 
 TEST(CorePort, InstructionCostSaturatesBeforeMultiplicationWraps) {
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   EventEngine engine;
   CorePort core_port(engine, dram, {.cpi = 2});
 
@@ -66,7 +66,7 @@ TEST(CorePort, StartingADeviceCostsWhatItsParametersSay) {
   // Writing the size registers costs a core port transaction each; writing
   // START launches the multiply, costed from them. The core does not wait for
   // it.
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   CommandDevice mac = MacArray();
   EventEngine engine;
   CorePort core_port(engine, dram, {.mmio_cycles = 2});
@@ -85,7 +85,7 @@ TEST(CorePort, ReadingStatusWaitsForTheWorkNotForEachPoll) {
   // In the functional simulator the device finishes instantly, so the
   // software's polling loop reads "done" once. That one read waits for the
   // work, which is where a real core would have spun.
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   CommandDevice mac = MacArray();
   EventEngine engine;
   CorePort core_port(engine, dram, {.mmio_cycles = 2});
@@ -105,7 +105,7 @@ TEST(CorePort, ATransferOverlapsTheCoresComputeAndIsWaitedOnlyAtTheEnd) {
   // A DMA engine costed as a fixed setup plus bytes over bandwidth. The core
   // starts a 4 KB transfer, computes while it runs, then waits for it: the
   // total is the longer of the two, not their sum.
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   CommandDevice dma("dma", /*params=*/1, /*start=*/0x08, /*status=*/0x10,
                     [](const std::vector<uint64_t>& p) {
                       return 20 + (p[0] + 31) / 32;  // 20 + bytes / 32
@@ -125,7 +125,7 @@ TEST(CorePort, ATransferOverlapsTheCoresComputeAndIsWaitedOnlyAtTheEnd) {
 
 TEST(CorePort, AnotherStartQueuesBehindWorkInProgress) {
   // The device serves one command at a time, in the order they were started.
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   CommandDevice mac = MacArray();
   EventEngine engine;
   CorePort core_port(engine, dram, {.mmio_cycles = 1});
@@ -144,7 +144,7 @@ TEST(CorePort, AnotherStartQueuesBehindWorkInProgress) {
 TEST(CorePort, ALongRunHoldsOnlyWhatIsInFlight) {
   // Syncing as it goes, a host keeps the engine's state to what is in flight,
   // however long the program.
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   Cache<"L1", 64, 4, 64, LRUPolicy, 2> l1(&dram);
   EventEngine engine;
   CorePort core_port(engine, l1);

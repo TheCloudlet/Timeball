@@ -82,7 +82,7 @@ TEST(CorePortTrace, RejectsANonNumericField) {
 }
 
 TEST(CorePortTrace, ApplyOneEventDispatchesLikeTheDirectCall) {
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   EventEngine engine;
   CorePort core_port(engine, dram, {.cpi = 1});
 
@@ -95,7 +95,7 @@ TEST(CorePortTrace, ApplyOneEventDispatchesLikeTheDirectCall) {
 }
 
 TEST(CorePortTrace, ApplyASequenceMatchesApplyingEachOneInOrder) {
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   CommandDevice mac = MacArray();
   EventEngine engine;
   CorePort core_port(engine, dram, {.mmio_cycles = 1});
@@ -116,7 +116,7 @@ TEST(CorePortTrace, ReplayingARecordedTraceMatchesRunningItDirectly) {
   // The point of CorePortEvent: record a run, replay it against a *different*
   // machine, and get exactly what running the same calls directly would — no
   // functional simulator involved the second time.
-  MainMemory<"DRAM"> dram(100);
+  Memory<"DRAM"> dram(100);
   CommandDevice mac = MacArray();
   EventEngine engine;
   CorePort core_port(engine, dram, {.cpi = 2, .mmio_cycles = 1});
@@ -136,7 +136,7 @@ TEST(CorePortTrace, ReplayingARecordedTraceMatchesRunningItDirectly) {
       MemoryStore{kMacBase + 0x08, 4},   MemoryStore{kMacBase + 0x10, 64},
       MemoryStore{kMacBase + kStart, 1}, MemoryLoad{kMacBase + kStatus}};
 
-  MainMemory<"DRAM2"> dram2(100);
+  Memory<"DRAM2"> dram2(100);
   CommandDevice mac2 = MacArray();
   EventEngine engine2;
   CorePort core_port2(engine2, dram2, {.cpi = 2, .mmio_cycles = 1});

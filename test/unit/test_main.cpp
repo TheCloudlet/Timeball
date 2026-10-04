@@ -37,7 +37,7 @@ using namespace timeball;
 using namespace timeball::test;
 
 // Tiny Cache for testing evictions
-using Mem = MainMemory<"MainMemory">;
+using Mem = Memory<"Memory">;
 using TinyCache = Cache<"Tiny", 1, 2, 64, LRUPolicy, 1>;
 
 // Where an access was served, and when it completed.
@@ -115,7 +115,7 @@ TEST(Cache, EvictionHitMissAndStoreSequence) {
 
   // Load new block -> Should evict Way 1 (0x0040)
   auto res = load(0x0080, 0);
-  EXPECT_EQ(res.hit_level, "MainMemory");
+  EXPECT_EQ(res.hit_level, "Memory");
 
   // A hit completes one cycle after it was issued, wherever on the timeline it
   // was issued — the returned cycle is absolute, not a latency.
@@ -125,7 +125,7 @@ TEST(Cache, EvictionHitMissAndStoreSequence) {
 
   // A miss costs this level's lookup plus the level below: 1 + 100.
   auto miss = load(0x4000, 7000);
-  EXPECT_EQ(miss.hit_level, "MainMemory");
+  EXPECT_EQ(miss.hit_level, "Memory");
   EXPECT_EQ(miss.complete_cycle, 7101u);
 
   // A store hit marks the line dirty without reaching the level below.
@@ -154,9 +154,9 @@ TEST(Cache, SharedSuccessorContentionAndPerNodeState) {
   // latency cannot express — without occupancy both would report 101.
   auto ra = tl.Access(a, {0x0000, AccessType::kLoad, 0});
   auto rb = tl.Access(b, {0x0000, AccessType::kLoad, 0});
-  EXPECT_EQ(ra.hit_level, "MainMemory");
+  EXPECT_EQ(ra.hit_level, "Memory");
   EXPECT_EQ(ra.complete_cycle, 101u);
-  EXPECT_EQ(rb.hit_level, "MainMemory");
+  EXPECT_EQ(rb.hit_level, "Memory");
   EXPECT_EQ(rb.complete_cycle, 201u);
 
   // And the shared memory really is one node reached by both: a hit in a
@@ -174,7 +174,7 @@ TEST(Cache, FreeNodeImposesNoWait) {
   TinyCache late(&late_mem);
   tl.Access(late, {0x0000, AccessType::kLoad, 0});  // holds memory 1..101
   auto unhindered = tl.Access(late, {0x8000, AccessType::kLoad, 5000});
-  EXPECT_EQ(unhindered.hit_level, "MainMemory");
+  EXPECT_EQ(unhindered.hit_level, "Memory");
   EXPECT_EQ(unhindered.complete_cycle, 5101u);
 }
 
@@ -201,7 +201,7 @@ TEST(Cache, ThreeLevelWritebackLeavesRequesterPathAlone) {
   // Through three levels, the requester's own completion is still the demand
   // path alone. The writeback's cost lands on the level below, which the
   // two-level test observes directly.
-  MainMemory<"WB3"> wb_mem(100);
+  Memory<"WB3"> wb_mem(100);
   Cache<"WB2", 1, 1, 64, LRUPolicy, 10> wb2(&wb_mem);
   Cache<"WB1", 1, 1, 64, LRUPolicy, 1> wb1(&wb2);
   Cycle t = tl.Access(wb1, {0x0000, AccessType::kStore, 0}).complete_cycle;
@@ -216,7 +216,7 @@ TEST(Cache, EngineRecordsEveryHopOfAnAccess) {
   OneAtATime tl;
   // Nodes record nothing: the engine records each resource an access occupies,
   // so a miss here leaves one record per node it visited and a hit leaves one.
-  MainMemory<"PMem"> pmem(100);
+  Memory<"PMem"> pmem(100);
   Cache<"PC", 1, 2, 64, LRUPolicy, 1> pc(&pmem);
 
   tl.Access(pc, {0x0000, AccessType::kLoad, 0});    // miss
@@ -249,7 +249,7 @@ TEST(Cache, RecordsSplitWaitingFromWorking) {
 
   const Record* waited = nullptr;
   for (const auto& r : tl.trace.records) {
-    if (r.resource == "MainMemory" && r.op == 2) waited = &r;
+    if (r.resource == "Memory" && r.op == 2) waited = &r;
   }
   ASSERT_NE(waited, nullptr);
   EXPECT_EQ(waited->arrival, 1u);
@@ -262,7 +262,7 @@ TEST(Cache, WritebacksRecordedButNonDemand) {
   // Writebacks are recorded but belong to no operation: they hold the node they
   // are sent to, yet no initiator waited on them, so per-requester statistics
   // exclude them.
-  MainMemory<"EMem"> emem(100);
+  Memory<"EMem"> emem(100);
   Cache<"E1", 1, 1, 64, LRUPolicy, 4> e1(&emem);
   Cycle at = 0;
   for (uint64_t addr : {0x0000ULL, 0x4000ULL}) {
@@ -285,7 +285,7 @@ TEST(Cache, RecordsCarryNestingDepthNotCycleOrder) {
   // Depth is recorded, not inferred from cycles: with a zero-latency middle
   // level, two hops share a cycle and order alone cannot tell nesting from
   // succession.
-  MainMemory<"DMem"> dmem(100);
+  Memory<"DMem"> dmem(100);
   Cache<"D2", 4, 2, 64, LRUPolicy, 0> d2(&dmem);
   Cache<"D1", 2, 2, 64, LRUPolicy, 4> d1(&d2);
   tl.Access(d1, {0x1000, AccessType::kLoad, 0});
@@ -308,7 +308,7 @@ TEST(Cache, WritebackRecordsTheDepthItForwardedFrom) {
   OneAtATime tl;
   // A writeback sent from a cache sits one level below that cache — the same
   // depth a demand forward from it reaches — not at depth 0.
-  MainMemory<"DWMem"> dwmem(100);
+  Memory<"DWMem"> dwmem(100);
   Cache<"DW2", 1, 1, 64, LRUPolicy, 1> dw2(&dwmem);
   Cache<"DW1", 1, 1, 64, LRUPolicy, 1> dw1(&dw2);
 
@@ -335,7 +335,7 @@ TEST(Scratchpad, FixedCostNeverMissesAndIsContended) {
   // A scratchpad: software-managed, fixed latency, no tags and no misses. It is
   // the sharpest test of the seam, sharing almost no implementation with a
   // cache — anything cache-shaped left in AccessNode would surface here.
-  Scratchpad<"SPM"> spm(5);
+  Memory<"SPM"> spm(5);
 
   // Every access is a hit at the same cost, wherever it lands. A cache would
   // miss on the first touch of each line; a scratchpad never does.
@@ -358,8 +358,8 @@ TEST(AddressMap, RoutesByAddressCoversHalfOpenBounds) {
   // An address map is itself a node: it routes by address and the caller says
   // nothing about which memory it meant. Two regions, two distinct backings,
   // distinguishable only by the latency each reports.
-  MainMemory<"Fast"> fast(10);
-  MainMemory<"Slow"> slow(200);
+  Memory<"Fast"> fast(10);
+  Memory<"Slow"> slow(200);
   AddressMap router;
   router.Map(0x0000, 0x1000, &fast);  // [0x0000, 0x1000)
   router.Map(0x1000, 0x2000, &slow);  // [0x1000, 0x2000)
@@ -390,7 +390,7 @@ TEST(AddressMap, PreservesAddressDownstream) {
   OneAtATime tl;
   // Routing is transparent to everything downstream: a cache behind the map
   // still sees the original address, so its own set/tag split is unchanged.
-  MainMemory<"Behind"> behind(100);
+  Memory<"Behind"> behind(100);
   Cache<"Cached", 1, 2, 64, LRUPolicy, 1> cached(&behind);
   AddressMap mapped;
   mapped.Map(0x0000, 0x10000, &cached);
@@ -407,7 +407,7 @@ TEST(AddressMap, ScratchpadSitsBehindAnyRegionBase) {
   // A scratchpad behind a region that does not start at zero. AddressMap passes
   // addresses through untouched, so the node indexes nothing, so an absolute
   // address is simply what arrives.
-  Scratchpad<"High"> high(5);
+  Memory<"High"> high(5);
   AddressMap high_map;
   high_map.Map(0x80000000, 0x80001000, &high);
   auto r = tl.Access(high_map, {0x80000800, AccessType::kLoad, 0});
@@ -420,9 +420,9 @@ TEST(AddressMap, MixedCacheAndScratchpadTopology) {
   // A topology mixing both: a cache backed by a scratchpad rather than a
   // memory, and both reachable through one address map. If the seam were
   // cache-shaped, a scratchpad could not stand in for a successor.
-  Scratchpad<"Backing"> backing(8);
+  Memory<"Backing"> backing(8);
   Cache<"Over", 1, 2, 64, LRUPolicy, 2> over(&backing);
-  Scratchpad<"Direct"> direct(3);
+  Memory<"Direct"> direct(3);
   AddressMap map;
   map.Map(0x0000, 0x1000, &over);
   map.Map(0x1000, 0x2000, &direct);
@@ -443,7 +443,7 @@ TEST(Cache, DirtyEvictionHoldsTheLevelBelow) {
   // A dirty eviction costs the level below real time. The requester does not
   // wait for it — the writeback leaves after the fill has arrived — but the
   // level below is held, so the next access there queues behind it.
-  MainMemory<"WMem"> wmem(100);
+  Memory<"WMem"> wmem(100);
   Cache<"W1", 1, 1, 64, LRUPolicy, 1> w1(&wmem);
 
   // Dirty the only line: miss through to memory, 1 + 100.
@@ -467,7 +467,7 @@ TEST(Cache, CleanEvictionHoldsNothing) {
   OneAtATime tl;
   // A clean eviction costs nothing: there is nothing to write back, so the
   // level below is not held and the next access does not wait.
-  MainMemory<"CMem"> cmem(100);
+  Memory<"CMem"> cmem(100);
   Cache<"C1", 1, 1, 64, LRUPolicy, 1> c1(&cmem);
   Cycle t = tl.Access(c1, {0x0000, AccessType::kLoad, 0}).complete_cycle;
   t = tl.Access(c1, {0x4000, AccessType::kLoad, t})
@@ -481,7 +481,7 @@ TEST(Cache, WritebackIsReturnedFromCompleteWithNoEngineInvolved) {
   // an engine-provided callback, so this — a cache's writeback behaviour — is
   // testable entirely on its own: construct the node, drive it directly,
   // inspect the return. No EventEngine exists anywhere in this test.
-  MainMemory<"DirectMem"> mem(100);
+  Memory<"DirectMem"> mem(100);
   Cache<"Direct", 1, 1, 64, LRUPolicy, 1> cache(&mem);
 
   // Fill the only line: nothing resident yet, so nothing is evicted and
@@ -511,7 +511,7 @@ TEST(Cache, FifoEvictsByInsertionOrderNotRecency) {
   // eviction — only insertion order matters. Same access pattern as the LRU
   // eviction test above, but the outcome is the opposite: way 0 (0x0000, filled
   // first) is evicted despite being re-touched, not way 1.
-  MainMemory<"FMem"> fmem(100);
+  Memory<"FMem"> fmem(100);
   Cache<"Fifo", 1, 2, 64, FIFOPolicy, 1> fifo(&fmem);
 
   tl.Access(fifo, {0x0000, AccessType::kLoad, 0});  // fills way 0
@@ -553,7 +553,7 @@ TEST(Cache, RandomPolicyWiresThroughCacheWithoutError) {
   OneAtATime tl;
   // Wired through Cache like any other policy: fills and evictions on a real
   // cache must not crash and must still return sensible hit levels.
-  MainMemory<"RMem2"> rmem2(100);
+  Memory<"RMem2"> rmem2(100);
   Cache<"Rand", 1, 4, 64, RandomPolicy, 1> rc(&rmem2);
   for (uint64_t block = 0; block < 8; ++block) {
     auto res = tl.Access(rc, {block * 64, AccessType::kLoad, 0});
@@ -569,7 +569,7 @@ TEST(Cache, RandomPolicyWiresThroughCacheWithoutError) {
 // evictions are often dirty and writebacks join the stream too.
 template <typename Policy>
 std::vector<std::string> RandomReplacementRecords() {
-  MainMemory<"RMem"> mem(100);
+  Memory<"RMem"> mem(100);
   Cache<"Rand", 1, 4, 64, Policy, 1> cache(&mem);
   EventEngine engine;
   Initiator agent(engine, 0);
@@ -613,9 +613,9 @@ TEST(Timeline, CompletionNearTheEndOfTimeSaturatesRatherThanWraps) {
   // access finishing almost at once — a fast, plausible, wrong answer. Time
   // saturates instead, at every kind of node that adds its own cost.
   const uint64_t late = UINT64_MAX - 10;
-  MainMemory<"LateMem"> mem(100);
-  Scratchpad<"LateSpm"> spm(100);
-  MainMemory<"BelowCache"> below(1);
+  Memory<"LateMem"> mem(100);
+  Memory<"LateSpm"> spm(100);
+  Memory<"BelowCache"> below(1);
   Cache<"LateCache", 1, 1, 64, LRUPolicy, 100> cache(&below);
 
   for (AccessNode* node :
@@ -639,7 +639,7 @@ TEST(AddressMap, UnmappedAccessInReleaseNeverMakesTheNextOneLookFast) {
   // With asserts compiled out an unmapped access still returns: its result
   // saturates, and whatever the initiator issues next must not wrap around to a
   // small completion cycle because of it.
-  MainMemory<"Mapped"> mem(100);
+  Memory<"Mapped"> mem(100);
   AddressMap router;
   router.Map(0x0000, 0x1000, &mem);
   EventEngine engine;
@@ -656,7 +656,7 @@ TEST(AddressMap, UnmappedAccessInReleaseHoldsNothingOthersNeed) {
   // The bad access saturates, but only its own requester pays: another
   // initiator routed through the same map still reaches mapped memory on time,
   // because the map itself is not held by the access it could not route.
-  MainMemory<"Mapped"> mem(100);
+  Memory<"Mapped"> mem(100);
   AddressMap router;
   router.Map(0x0000, 0x1000, &mem);
   EventEngine engine;
@@ -678,7 +678,7 @@ TEST(Initiator, CannotIssueBeforeItIsFree) {
   // An Initiator is in order with one access outstanding: each access it issues
   // begins only once the previous completed. With one initiator alone, its
   // clock is simply where its last access finished.
-  MainMemory<"IMem"> imem(100);
+  Memory<"IMem"> imem(100);
   Cache<"I1", 1, 2, 64, LRUPolicy, 1> i1(&imem);
   EventEngine engine;
   Initiator solo(engine, 0);
@@ -701,7 +701,7 @@ TEST(Initiator, KeepsIssuingInOrderAcrossWindows) {
   // An initiator's previous access may be retired by the time it issues the
   // next: the engine has run past it and forgotten its cycle. The next access
   // still begins no earlier than the window, as the host promised.
-  MainMemory<"WMem"> wmem(100);
+  Memory<"WMem"> wmem(100);
   EventEngine engine;
   Initiator core(engine, 0);
   const EventId first = core.Issue(wmem, 0x0000, AccessType::kLoad);
@@ -718,7 +718,7 @@ TEST(Initiator, TwoInitiatorsContendForOneMemory) {
   // Two initiators sharing one memory advance against one timeline. Both arrive
   // at 0; the memory serves one 0..100 and the other 100..200, and each
   // initiator's own clock advances only by its own access.
-  MainMemory<"SMem"> smem(100);
+  Memory<"SMem"> smem(100);
   EventEngine engine;
   Initiator core(engine, 0);
   Initiator dma(engine, 1);
@@ -733,7 +733,7 @@ TEST(Initiator, PriorityBreaksTiesAtANode) {
   // Two accesses arriving at one node at the same cycle go to the
   // higher-priority initiator first — DMA yields to cores — rather than falling
   // out of submission order.
-  MainMemory<"PMem"> pmem(100);
+  Memory<"PMem"> pmem(100);
   EventEngine engine;
   Initiator low_prio_dma(engine, 0, /*ready_at=*/0, /*priority=*/0);
   Initiator high_prio_core(engine, 1, /*ready_at=*/0, /*priority=*/1);
@@ -749,7 +749,7 @@ TEST(Initiator, PriorityBreaksTiesAtANode) {
 TEST(Initiator, PriorityNeverOverridesAnEarlierArrival) {
   // Not a tie: an access that arrived first is served first, whatever the
   // priority of one arriving while it waits or is served.
-  MainMemory<"OMem"> omem(100);
+  Memory<"OMem"> omem(100);
   EventEngine engine;
   Initiator earlier_low_prio(engine, 0, /*ready_at=*/0, /*priority=*/0);
   Initiator later_high_prio(engine, 1, /*ready_at=*/50, /*priority=*/1);
@@ -764,7 +764,7 @@ TEST(Initiator, SeveralInitiatorsShareOneMemoryInArrivalOrder) {
   // Several agents on one timeline, a runtime-sized set of them. Each issues
   // twice; the memory serves whoever arrived first, so each agent's second
   // access queues behind the others' first.
-  MainMemory<"RMem"> rmem(100);
+  Memory<"RMem"> rmem(100);
   EventEngine engine;
   std::vector<Initiator> agents;
   for (uint32_t id = 0; id < 3; ++id) agents.emplace_back(engine, id);
@@ -798,7 +798,7 @@ TEST(Initiator, EarlierArrivalIsNotQueuedBehindALaterOne) {
   //
   // Served in arrival order: B at 10..110, A at 110..210. Timed in call order,
   // as the old node model did, B completed at 250 instead.
-  MainMemory<"Shared"> shared(100);
+  Memory<"Shared"> shared(100);
   Cache<"SlowL1", 1, 1, 64, LRUPolicy, 50> slow_l1(&shared);
   EventEngine engine;
   Initiator a(engine, 0);
@@ -816,7 +816,7 @@ TEST(Cache, ConcurrentMissesToOneLineFillItOnce) {
   // fill finds it already resident and keeps that copy rather than placing a
   // duplicate in the set's other way. So a later line fills the free way,
   // evicting nothing — no writeback of the dirty line.
-  MainMemory<"CMem"> cmem(100);
+  Memory<"CMem"> cmem(100);
   Cache<"Shared2", 1, 2, 64, LRUPolicy, 1> shared(&cmem);
   EventEngine engine;
   RecordingSink trace;
@@ -852,8 +852,8 @@ TEST(Initiator, BackgroundTransferOverlappingComputeIsVisible) {
   // A background transfer overlapping compute, and whether it was hidden. The
   // DMA holds the memory while the core works out of its own scratchpad, so the
   // two overlap in the record rather than serialising.
-  MainMemory<"Far"> far(200);
-  Scratchpad<"Local"> local(4);
+  Memory<"Far"> far(200);
+  Memory<"Local"> local(4);
   EventEngine engine;
   Initiator dma(engine, 0);
   Initiator core(engine, 1);
@@ -899,7 +899,7 @@ TEST(EventStore, LeavesOneRowPerResourceOccupiedAndATaskTable) {
   const std::string db_path = FreshDb("timeball_ops.sqlite");
   {
     EventStore store(db_path);
-    MainMemory<"QMem"> qmem(100);
+    Memory<"QMem"> qmem(100);
     Cache<"Q1", 1, 2, 64, LRUPolicy, 4> q1(&qmem);
     EventEngine engine;
     Initiator agent(engine, 0);
@@ -941,7 +941,7 @@ TEST(EventStore, AnswersWhichOperationWasSlowAndWhy) {
   const std::string db_path = FreshDb("timeball_slow.sqlite");
   {
     EventStore store(db_path);
-    MainMemory<"DRAM"> dram(100);
+    Memory<"DRAM"> dram(100);
     Cache<"L1", 1, 2, 64, LRUPolicy, 4> l1(&dram);
     EventEngine engine;
     const ResourceId dma = engine.AddResource({"dma", 1});
@@ -1008,7 +1008,7 @@ TEST(EventStore, UnclosedTaskSpansToTheLastCycleRecorded) {
   const std::string db_path = FreshDb("timeball_unclosed.sqlite");
   {
     EventStore store(db_path);
-    MainMemory<"UMem"> umem(100);
+    Memory<"UMem"> umem(100);
     EventEngine engine;
     Initiator agent(engine, 0);
     store.BeginTask("never_closed", 0);
@@ -1027,7 +1027,7 @@ TEST(EventStore, UnopenableStoreReportsItAndNoOps) {
   // mistake: IsOpen reports it and every later call is a no-op, rather than
   // asserting away under NDEBUG and leaving a run with nothing behind.
   EventStore bad("/nonexistent_dir_xyz/events.sqlite");
-  MainMemory<"BMem"> bmem(100);
+  Memory<"BMem"> bmem(100);
   EventEngine engine;
   Initiator agent(engine, 0);
   bad.BeginTask("doomed", 0);
