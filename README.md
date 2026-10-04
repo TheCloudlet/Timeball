@@ -49,7 +49,54 @@ Timeball what work happens: memory accesses, and any other operation with a cost
 it already knows. Timeball puts all of it on one timeline and answers when each
 piece completes.
 
+If the memory graph looks like this:
+
+```
++------------------------------------------------------------------------------+
+|                         [0x00000000, 0x80000000)                             |
+|  +----------------+          +---------------------------+                   |
+|  | Core           |          | L1                        |                   |
+|  | in order       +--------->| 64 sets, 8 ways, 64-byte  |                   |
+|  +--+------+------+          | LRU, hit 4                |                   |
+|     |      |                 +-------------+-------------+                   |
+|     |      |                               |                                 |
+|     |      | MMIO 0x40000000               | miss                            |
+|     |      | size 0x100                    v                                 |
+|     |      |                 +---------------------------+                   |
+|     |      |                 | DRAM                      |                   |
+|     |      |                 | latency 100               |                   |
+|     |      |                 +---------------------------+                   |
+|     |      v                                                                 |
+|     |  +-------------------------------+                                     |
+|     |  | MAC                           |                                     |
+|     |  | params  0x00   0x08   0x10    |                                     |
+|     |  | START   0x18   STATUS 0x20    |                                     |
+|     |  | cost    M * N * K / 64        |                                     |
+|     |  +-------------------------------+                                     |
+|     |                                                                        |
+|     | [0x80000000, 0x80010000)                                               |
+|     v                                                                        |
+|  +---------------------------+                                               |
+|  | Scratchpad                |                                               |
+|  | SPM, latency 5            |                                               |
+|  | no tags, no misses        |                                               |
+|  +---------------------------+                                               |
++------------------------------------------------------------------------------+
+```
+
+An address in `[0x00000000, 0x80000000)` goes through L1, and a miss continues
+to DRAM. An address in `[0x80000000, 0x80010000)` stops at the scratchpad. The
+MAC is a memory-mapped device at `0x40000000`, size `0x100`. A write to START,
+at offset `0x18`, launches work costing `M * N * K / 64` cycles. A read of
+STATUS, at offset `0x20`, waits until that work finishes. The core port takes
+this window before the address map, so the store does not enter L1.
+
+You build that graph as follows. The address map names the two memory
+regions. The MAC is not a region on that map. `Attach` registers its window
+on the core port, and a store to START launches the work.
+
 ```cpp
+#include "timeball/core_port.hpp"
 #include "timeball/timeball.hpp"
 using namespace timeball;
 
@@ -58,25 +105,28 @@ MainMemory<"DRAM"> dram(100);
 Scratchpad<"SPM"> spm(5);
 Cache<"L1", 64, 8, 64, LRUPolicy, 4> l1(&dram);
 
-// One address map decides which node models which address, so the host hands
-// over an address and learns nothing about the memory behind it.
+// Memory only. An address here is a load or a store, never a device register.
 AddressMap map;
 map.Map(0x00000000, 0x80000000, &l1);
 map.Map(0x80000000, 0x80010000, &spm);
 
-// One timeline for everything. An initiator issues in order: each access
-// begins once its previous one completed.
+// Parameter registers, then START at 0x18 and STATUS at 0x20.
+CommandDevice mac("mac", 3, 0x18, 0x20, [](const std::vector<uint64_t>& p) {
+  return p[0] * p[1] * p[2] / 64;
+});
+
 EventEngine engine;
-Initiator core(engine, 0);
-EventId load = core.Issue(map, addr, AccessType::kLoad);
+CorePort core_port(engine, map);
+core_port.Attach(0x40000000, 0x100, mac);  // checked before the address map
 
-// Work whose cost the host already knows — from its own cost table — sits on
-// the same timeline and waits on whatever it depends on.
-ResourceId mac = engine.AddResource({"mac", 1});
-engine.Submit({"matmul", mac, 0, /*duration=*/256, {.after = {load}}});
-
-engine.RunUntilIdle();
-Cycle done = core.BusyUntil();
+core_port.OnLoad(0x1000);                  // L1, and DRAM on a miss
+core_port.OnStore(0x40000000 + 0x00, 64);  // M
+core_port.OnStore(0x40000000 + 0x08, 64);  // N
+core_port.OnStore(0x40000000 + 0x10, 64);  // K
+core_port.OnStore(0x40000000 + 0x18, 1);   // START launches M*N*K/64
+core_port.OnLoad(0x40000000 + 0x20);       // STATUS waits for that work
+core_port.Sync();
+Cycle done = core_port.Now();
 ```
 
 Adding a memory region changes no call site. Adding a node type changes nothing
@@ -96,64 +146,66 @@ Every piece of work — a compute step, a transfer, one hop of a memory access �
 is an operation on a resource, and every completion is an absolute cycle.
 Contention then has a direct expression:
 
-```
+```text
 completion = max(dependencies complete, resource free) + cost
 ```
 
 The cost is static, from the host's table, or dynamic, computed by the node an
 access reaches: a cache hit costs its lookup, a miss continues to the next node.
-An agent arriving while another holds a resource waits for it, in arrival
-order, and the waiting is computed rather than estimated. This is the decision that makes every other
-one possible — a relative latency has nowhere to put "it waited".
+An agent arriving while another holds a resource waits for it, in arrival order,
+and the waiting is computed rather than estimated. This is the decision that
+makes every other one possible — a relative latency has nowhere to put "it
+waited".
 
 ### Work requiring several resources
 
-An operation can require one unit of several resources at once. List the
-extra resources in `additional_resources`; the existing `resource` is the
-primary resource reported by `OperationResult::served_by`.
+An operation can require one unit of several resources at once. List the extra
+resources in `additional_resources`; the existing `resource` is the primary
+resource reported by `OperationResult::served_by`.
 
 ```cpp
 ResourceId transfer = engine.AddResource({"transfer", 1});
 ResourceId link = engine.AddResource({"link", 1});
 ResourceId buffer = engine.AddResource({"buffer", 2});
-engine.Submit({"copy", transfer, 0, 12, {.after = {load}}, {link, buffer}});
+// `earlier` is an EventId this engine already returned.
+engine.Submit({"copy", transfer, 0, 12, {.after = {earlier}}, {link, buffer}});
 ```
 
 All named resources must exist and be distinct. The operation waits without
-holding any capacity until all resources can serve it, then holds one unit
-of each for the same interval and completes once. On each resource, an
-earlier waiter cannot be overtaken while waiting for another resource;
-unrelated resources continue to work. Ties use priority, then submission
-order, as single-resource work does.
+holding any capacity until all resources can serve it, then holds one unit of
+each for the same interval and completes once. On each resource, an earlier
+waiter cannot be overtaken while waiting for another resource; unrelated
+resources continue to work. Ties use priority, then submission order, as
+single-resource work does.
 
-The engine emits a record for every occupied resource, primary first, with
-the same operation ID and service interval. Only the primary record carries
+The engine emits a record for every occupied resource, primary first, with the
+same operation ID and service interval. Only the primary record carries
 dependencies, so SQLite stores each dependency once. Count completions from
 `RunResult::completed`, or group records by operation ID when counting work.
 
 ### Structure is compile-time, occupancy is runtime
 
-A node's geometry, capacity and policy are template parameters, so the per-access
-work — tag comparison, victim selection — stays fully inlined with no indirect
-call. Nodes hold interface references to each other, so topology is decided at
-run time and any graph is expressible, including several agents sharing one
-memory.
+A node's geometry, capacity and policy are template parameters, so the
+per-access work — tag comparison, victim selection — stays fully inlined with no
+indirect call. Nodes hold interface references to each other, so topology is
+decided at run time and any graph is expressible, including several agents
+sharing one memory.
 
-The engine reaches a node through that interface once per hop; the lookup
-inside it has compile-time geometry throughout. A cache hit is one hop and never
+The engine reaches a node through that interface once per hop; the lookup inside
+it has compile-time geometry throughout. A cache hit is one hop and never
 touches its successor.
 
 This is a preference on the per-access path, not a system-wide guarantee. The
-earlier claim that Timeball "eliminates virtual dispatch" described a design that
-could not express a shared resource at all, and has been replaced.
+earlier claim that Timeball "eliminates virtual dispatch" described a design
+that could not express a shared resource at all, and has been replaced.
 
 ### One record, kept by the engine
 
 Nodes record nothing. The engine writes one record each time a resource is
-occupied — a compute step, a transfer, one hop of a memory access — with when
-it arrived, when it started and when it finished. Every report is a query over
-that one stream, so two reports cannot disagree, and each record already
-separates waiting (`start - arrival`) from working (`finish - start`).
+occupied — a compute step, a transfer, one hop of a memory access — with when it
+arrived, when it started and when it finished. Every report is a query over that
+one stream, so two reports cannot disagree, and each record already separates
+waiting (`start - arrival`) from working (`finish - start`).
 
 A run can stream the records into a SQLite file as they happen: `ops` holds a
 row per resource occupied, `deps` a row per dependency an operation waited on,
@@ -179,22 +231,21 @@ ORDER BY p.finish DESC LIMIT 1;
 Python's stdlib `sqlite3` reads the file with no bespoke parser.
 `-DTIMEBALL_WITH_SQLITE=OFF` drops the store and the dependency entirely.
 
-To combine timing records with caller-owned tables in one transaction,
-construct `EventStore` with a reference to the caller's open `sqlite3`
-connection. This replaces the store's reserved `ops`, `deps`, and `tasks`
-tables, but does not change transaction or journal settings. The caller
-keeps ownership of the connection, starts the transaction before constructing
-the store, and writes its own tables keyed by operation ID. Check the store's
-`Close()` result before committing the combined recording; it finalizes only
-the store's statements. The caller must also check its metadata writes and
-final commit, and publish only a complete recording. No caller-specific
-schema is added to Timeball.
+To combine timing records with caller-owned tables in one transaction, construct
+`EventStore` with a reference to the caller's open `sqlite3` connection. This
+replaces the store's reserved `ops`, `deps`, and `tasks` tables, but does not
+change transaction or journal settings. The caller keeps ownership of the
+connection, starts the transaction before constructing the store, and writes its
+own tables keyed by operation ID. Check the store's `Close()` result before
+committing the combined recording; it finalizes only the store's statements. The
+caller must also check its metadata writes and final commit, and publish only a
+complete recording. No caller-specific schema is added to Timeball.
 
 ## Node types
 
-Built-in nodes are examples, not requirements. Each plays one of three roles.
-A node that can receive a request is an `AccessNode`. An `Initiator` is a
-node and is not one: it originates accesses, it does not serve them.
+Built-in nodes are examples, not requirements. Each plays one of three roles. A
+node that can receive a request is an `AccessNode`. An `Initiator` is a node and
+is not one: it originates accesses, it does not serve them.
 
 | Node         | Role        | Models                                            |
 | ------------ | ----------- | ------------------------------------------------- |
@@ -205,12 +256,11 @@ node and is not one: it originates accesses, it does not serve them.
 | `Initiator`  | Initiator   | Where accesses originate; in order, one at a time |
 
 A new node type says what serving an access costs it and where the access goes
-next (`Serve`), and optionally what changes once the data arrives
-(`Complete`, such as a fill). It needs only
-`timeball/node.hpp` — the
-vocabulary, with nothing about any particular kind of node. The scratchpad is
-the proof this works: it shares almost no implementation with a cache, and
-adding it required no change to the node interface.
+next (`Serve`), and optionally what changes once the data arrives (`Complete`,
+such as a fill). It needs only `timeball/node.hpp` — the vocabulary, with
+nothing about any particular kind of node. The scratchpad is the proof this
+works: it shares almost no implementation with a cache, and adding it required
+no change to the node interface.
 
 ## Quick start
 
