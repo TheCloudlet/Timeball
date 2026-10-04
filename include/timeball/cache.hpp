@@ -52,8 +52,10 @@ class Cache : public AccessNode {
   static size_t SetIndex(uint64_t addr) { return (addr / BlockSize) % Sets; }
   static uint64_t Tag(uint64_t addr) { return addr / (BlockSize * Sets); }
 
-  // The way holding tag in this set, or Ways if it is not resident.
-  size_t Find(size_t set_idx, uint64_t tag) const {
+  // The way holding this address, or Ways if it is not resident.
+  [[nodiscard]] size_t Find(uint64_t addr) const {
+    const size_t set_idx = SetIndex(addr);
+    const uint64_t tag = Tag(addr);
     const size_t base_idx = set_idx * Ways;
     for (size_t way_idx = 0; way_idx < Ways; ++way_idx) {
       const Line& line = sets_[base_idx + way_idx];
@@ -86,7 +88,7 @@ class Cache : public AccessNode {
       return {.cost = HitLatency};
     }
     const size_t set_idx = SetIndex(r.addr);
-    const size_t way_idx = Find(set_idx, Tag(r.addr));
+    const size_t way_idx = Find(r.addr);
     if (way_idx != Ways) {
       // Hit. The next level is not touched.
       if (r.type == AccessType::kStore) {
@@ -112,7 +114,7 @@ class Cache : public AccessNode {
     // Fill now, not when the miss was noticed. Until then the line misses.
     const size_t set_idx = SetIndex(r.addr);
     std::vector<Writeback> writebacks;
-    const size_t way = Fill(set_idx, Tag(r.addr), r.initiator_id, writebacks);
+    const size_t way = Fill(r.addr, r.initiator_id, writebacks);
     if (r.type == AccessType::kStore) {
       sets_[(set_idx * Ways) + way].dirty = true;
     }
@@ -123,10 +125,12 @@ class Cache : public AccessNode {
   // Returns the way filled, so a store can mark it dirty without a second scan.
   // A dirty victim's writeback is attributed to the initiator whose fill
   // evicted it.
-  size_t Fill(size_t set_idx, uint64_t tag, InitiatorId initiator_id,
+  size_t Fill(uint64_t addr, InitiatorId initiator_id,
               std::vector<Writeback>& writebacks) {
+    const size_t set_idx = SetIndex(addr);
+    const uint64_t tag = Tag(addr);
     // A second miss to a line already filled by an in-flight miss reuses it.
-    const size_t resident = Find(set_idx, tag);
+    const size_t resident = Find(addr);
     if (resident != Ways) {
       policy_.OnHit(set_idx, resident);
       return resident;
