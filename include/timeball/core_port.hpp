@@ -37,8 +37,9 @@ class MmioDevice {
 };
 
 // Parameter registers, a start register, and a status register. Parameter i is
-// the 8-byte register at offset 8 * i. A write to start launches work costed
+// the 8-byte register at offset 8 * i. A write to start launches work priced
 // from the parameters. A read of status waits until that work has finished.
+// Writes elsewhere are ignored.
 class CommandDevice final : public MmioDevice {
  public:
   using Cost = std::function<Cycle(const std::vector<uint64_t>& params)>;
@@ -54,17 +55,18 @@ class CommandDevice final : public MmioDevice {
   }
 
  private:
-  std::string_view name_;
+  std::string_view name_;  // Not owned; see DeviceName().
   std::vector<uint64_t> params_;
   uint64_t start_;
   uint64_t status_;
   Cost cost_;
 };
 
+// This core's own timing and identity. A device prices its own job.
 struct CorePortConfig {
-  Cycle cpi = 1;          // core cycles per retired instruction
-  Cycle mmio_cycles = 1;  // one register read or write
-  InitiatorId core = 0;   // whose accesses these are
+  Cycle cpi = 1;          // Each retired instruction takes this many cycles.
+  Cycle mmio_cycles = 1;  // Each device-register access takes this many cycles.
+  InitiatorId core = 0;   // Tags this core's events and memory accesses.
 };
 
 // One in-order core. Each call waits for that core's previous work. One

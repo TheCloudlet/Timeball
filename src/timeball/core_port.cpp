@@ -2,7 +2,6 @@
 
 #include "timeball/core_port.hpp"
 
-#include <algorithm>
 #include <cassert>
 #include <string>
 #include <type_traits>

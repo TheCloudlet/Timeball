@@ -14,24 +14,28 @@
 
 namespace timeball {
 
-enum class AccessType : std::uint8_t { kLoad, kStore, kHint, kFence };
+// The kind of access. Fixed-latency memory ignores it. A cache does not.
+enum class AccessType : std::uint8_t {
+  kLoad,   // Reads the addressed line.
+  kStore,  // Writes the addressed line.
+  kHint,   // Like a load, but a hit leaves replacement order alone.
+  kFence,  // Stops at the first cache or memory. An I-cache drops its lines.
+};
 
-// What the sender knows: address, load or store, and who issued it. Start time,
-// depth, and who waits are the engine's, and are not on here.
+// What the sender knows. Timing (start, depth, waiters) is the engine's.
 struct Request {
   uint64_t addr = 0;
   AccessType type = AccessType::kLoad;
-  InitiatorId initiator_id;
+  InitiatorId initiator_id;  // Identifies who issued the access.
 };
 
 class AccessNode;
 
-// This node's service cost, and where the access goes next. null next: served
-// here. The engine decides when.
+// This is what Serve returns. The engine forwards a non-null next later.
 struct Route {
-  Cycle cost;
-  AccessNode* next = nullptr;
-  Request forward{};
+  Cycle cost;                  // Cycle duration of this hop.
+  AccessNode* next = nullptr;  // Null means this hop served the access.
+  Request forward{};           // Sent to next. A cache miss sends a load.
 };
 
 // A dirty line evicted downward. No requester waits on it.
