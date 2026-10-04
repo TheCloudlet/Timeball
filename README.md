@@ -60,7 +60,7 @@ If the memory graph looks like this:
 |  +--+------+------+          | LRU, hit 4                |                   |
 |     |      |                 +-------------+-------------+                   |
 |     |      |                               |                                 |
-|     |      | MMIO 0x40000000               | miss                            |
+|     |      | MMIO 0x90000000               | miss                            |
 |     |      | size 0x100                    v                                 |
 |     |      |                 +---------------------------+                   |
 |     |      |                 | DRAM                      |                   |
@@ -86,10 +86,11 @@ If the memory graph looks like this:
 
 An address in `[0x00000000, 0x80000000)` goes through L1, and a miss continues
 to DRAM. An address in `[0x80000000, 0x80010000)` stops at the scratchpad. The
-MAC is a memory-mapped device at `0x40000000`, size `0x100`. A write to START,
-at offset `0x18`, launches work costing `M * N * K / 64` cycles. A read of
-STATUS, at offset `0x20`, waits until that work finishes. The core port takes
-this window before the address map, so the store does not enter L1.
+MAC is a memory-mapped device at `0x90000000`, size `0x100`, outside both
+regions. A write to START, at offset `0x18`, launches work costing
+`M * N * K / 64` cycles; the value written is ignored. A read of STATUS, at
+offset `0x20`, waits until that work finishes. The core port checks device
+windows before the address map, so a register access never enters L1.
 
 You build that graph as follows. The address map names the two memory
 regions. The MAC is not a region on that map. `Attach` registers its window
@@ -110,21 +111,26 @@ AddressMap map;
 map.Map(0x00000000, 0x80000000, &l1);
 map.Map(0x80000000, 0x80010000, &spm);
 
-// Parameter registers, then START at 0x18 and STATUS at 0x20.
-CommandDevice mac("mac", 3, 0x18, 0x20, [](const std::vector<uint64_t>& p) {
-  return p[0] * p[1] * p[2] / 64;
-});
+constexpr uint64_t kMac = 0x90000000;
+constexpr uint64_t kStart = 0x18;
+constexpr uint64_t kStatus = 0x20;
+
+// Three parameter registers, then START and STATUS.
+CommandDevice mac("mac", 3, kStart, kStatus,
+                  [](const std::vector<uint64_t>& p) {
+                    return p[0] * p[1] * p[2] / 64;
+                  });
 
 EventEngine engine;
 CorePort core_port(engine, map);
-core_port.Attach(0x40000000, 0x100, mac);  // checked before the address map
+core_port.Attach(kMac, 0x100, mac);
 
-core_port.OnLoad(0x1000);                  // L1, and DRAM on a miss
-core_port.OnStore(0x40000000 + 0x00, 64);  // M
-core_port.OnStore(0x40000000 + 0x08, 64);  // N
-core_port.OnStore(0x40000000 + 0x10, 64);  // K
-core_port.OnStore(0x40000000 + 0x18, 1);   // START launches M*N*K/64
-core_port.OnLoad(0x40000000 + 0x20);       // STATUS waits for that work
+core_port.OnLoad(0x1000);             // L1, and DRAM on a miss
+core_port.OnStore(kMac + 0x00, 64);   // M
+core_port.OnStore(kMac + 0x08, 64);   // N
+core_port.OnStore(kMac + 0x10, 64);   // K
+core_port.OnStore(kMac + kStart, 0);  // any value; launches M*N*K/64 cycles
+core_port.OnLoad(kMac + kStatus);     // waits for that work
 core_port.Sync();
 Cycle done = core_port.Now();
 ```
