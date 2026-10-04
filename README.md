@@ -5,33 +5,42 @@
 ![CI/CD](https://github.com/TheCloudlet/Timeball/workflows/CI%2FCD%20Pipeline/badge.svg)
 ![Format](https://github.com/TheCloudlet/Timeball/workflows/Format%20Check/badge.svg)
 
-**A small, embeddable timing engine. You describe a chip as a graph of connected
-units; Timeball computes when each access completes.**
+**Timeball is a timing engine that you link into your own simulator.** You
+describe a chip as a graph of connected units, and Timeball computes when each
+access completes. Your simulator runs the program.
 
-Functional behaviour — what to execute — comes from outside. Timeball answers how
-long.
+## The name
+
+A [time ball](https://en.wikipedia.org/wiki/Time_ball) is a ball on a mast,
+dropped at an agreed hour so every ship in the harbor can set its chronometer
+by the same instant. The ball does not sail; it only keeps the time the others
+read. Timeball plays that part for a simulator. Your simulator decides what
+runs. Timeball keeps the one timeline that says when, and how long each access
+waited.
 
 ## The problem
 
-Anyone with a working functional simulator and a question about time is stuck
-with bad options. The simulator says what executes and produces the right
-answers; it says nothing about how long anything took, because that was never
-its job.
+A functional simulator runs the program and checks the results. A timing model
+says how long each step takes: memory latency, cache behavior, contention.
 
-Adopting gem5 means buying its entire world view along with the timing — a
-rewrite, not an addition. SystemC TLM is the standard answer and a heavyweight
-framework for what is often a narrow question. So most teams write timing
-directly into the functional simulator, where it interleaves with execution
-logic, cannot be reused, and cannot be tested on its own.
+Large companies keep these as two models owned by two teams, because one model
+cannot be both fast enough to run software and detailed enough to answer a
+cycle-level question.
 
-That third path has a specific failure. Timing code written inline accumulates
-latency as a scalar — an access "takes 40 cycles" — which is correct exactly as
-long as nothing overlaps and nothing contends. The moment two agents share a
-resource, "how long did this take" has no scalar answer: one waited because the
-other held the resource, and expressing that needs a shared timeline.
+A small team has one simulator. gem5 or SystemC transaction-level modeling
+(TLM) would model the whole system and replace the simulator you already have,
+when all you need is access latency. So the timing goes inline, as a number
+added per access. That number mixes with the execution logic, can only be
+tested by running the whole simulator, and is written again for the next
+project.
 
-Timeball is the timing model pulled out into its own engine, so it can be tested
-alone, compared across workloads, and reused on the next project.
+It is also wrong once anything is shared. Forty cycles per access holds while
+accesses run one at a time. When two agents use the same resource, one waits,
+and a fixed number cannot show the wait. Both agents need one timeline.
+
+Timeball keeps that timeline in its own engine, linked into the simulator you
+have. You test the engine by itself, compare it across workloads, and reuse it
+on the next project.
 
 ## How it works
 
