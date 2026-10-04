@@ -12,8 +12,8 @@
 
 namespace timeball {
 
-// Software-managed memory. Fixed latency, no tags, no misses. Any address
-// that arrives is served. Not a base of MainMemory: this is not backing DRAM.
+// Software-managed memory. Fixed latency, no tags, no misses. Any address that
+// arrives is served. Not a base of MainMemory: this is not backing DRAM.
 template <FixedString Name>
 class Scratchpad : public AccessNode {
   Cycle latency_;
@@ -25,8 +25,8 @@ class Scratchpad : public AccessNode {
     return Name.value;
   }
 
-  // Served here, at the fixed cost. Held for that time, so a second
-  // arrival waits.
+  // Served here, at the fixed cost. Held for that time, so a second arrival
+  // waits.
   Route Serve(const Request& r) override {
     (void)r;
     return {.cost = latency_};

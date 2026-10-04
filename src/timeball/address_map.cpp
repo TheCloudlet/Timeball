@@ -44,15 +44,14 @@ bool AddressMap::Covers(uint64_t addr) const {
 Route AddressMap::Serve(const Request& r) {
   for (const auto& region : regions_) {
     if (region.Contains(r.addr)) {
-      // The address is passed through untouched: a node behind the map does
-      // its own set/tag split on the address the host actually used.
+      // The address is passed through untouched: a node behind the map does its
+      // own set/tag split on the address the host actually used.
       return {.cost = 0, .next = region.node, .forward = r};
     }
   }
   assert(false && "Access to an unmapped address");
-  // Unreachable in a debug build, and unreachable by construction in a
-  // release build that checked Covers() first. Stateless, so one serves every
-  // map.
+  // Unreachable in a debug build, and unreachable by construction in a release
+  // build that checked Covers() first. Stateless, so one serves every map.
   static Unmapped unmapped;
   return {.cost = 0, .next = &unmapped, .forward = r};
 }

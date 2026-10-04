@@ -11,8 +11,8 @@
 
 namespace timeball {
 
-// Replacement policies. Cache holds Policy::State<Sets, Ways>, so the state
-// is a fixed-size array and hot-path bounds are constants.
+// Replacement policies. Cache holds Policy::State<Sets, Ways>, so the state is
+// a fixed-size array and hot-path bounds are constants.
 //
 // A new policy is a type with a nested State template providing:
 //
@@ -26,8 +26,8 @@ namespace timeball {
 //     };
 //   };
 //
-// State is default-constructed, and GetVictim is called only when every way
-// in the set is valid.
+// State is default-constructed, and GetVictim is called only when every way in
+// the set is valid.
 
 // 1. Least Recently Used (LRU)
 struct LRUPolicy {
@@ -97,8 +97,8 @@ struct FIFOPolicy {
 
 // 3. Random Policy
 //
-// Same trace, same victims. The seed is fixed with the policy; another
-// sequence is another build.
+// Same trace, same victims. The seed is fixed with the policy; another sequence
+// is another build.
 template <std::uint32_t Seed>
 struct SeededRandomPolicy {
   template <size_t Sets, size_t Ways>
@@ -127,8 +127,8 @@ struct SeededRandomPolicy {
   };
 };
 
-// std::mt19937's own default seed, so the name used everywhere a seed was
-// never a question stays a plain type.
+// std::mt19937's own default seed, so the name used everywhere a seed was never
+// a question stays a plain type.
 using RandomPolicy = SeededRandomPolicy<std::mt19937::default_seed>;
 
 }  // namespace timeball

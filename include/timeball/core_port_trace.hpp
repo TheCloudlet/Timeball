@@ -42,15 +42,14 @@ using CorePortEvent =
 //   I <count>          OnInstructions(count)
 //   L <addr>            OnLoad(addr)
 //   S <addr> <value>     OnStore(addr, value)
-// addr and value in hex (0x-prefixed) or decimal; count in decimal. Blank
-// lines and lines starting with # are ignored. Written by WriteCorePortTrace,
-// in the order given.
+// addr and value in hex (0x-prefixed) or decimal; count in decimal. Blank lines
+// and lines starting with # are ignored. Written by WriteCorePortTrace, in the
+// order given.
 void WriteCorePortTrace(std::ostream& out,
                         const std::vector<CorePortEvent>& events);
 
-// nullopt if any line is malformed. A bad file is not a programming error,
-// so this does not assert. Nothing is returned: a partial trace is not
-// replayed.
+// nullopt if any line is malformed. A bad file is not a programming error, so
+// this does not assert. Nothing is returned: a partial trace is not replayed.
 [[nodiscard]] std::optional<std::vector<CorePortEvent>> ReadCorePortTrace(
     std::istream& in);
 

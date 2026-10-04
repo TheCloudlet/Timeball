@@ -10,10 +10,9 @@
 
 #include "timeball/event_engine.hpp"
 
-// Filter, group, and fold over records.
-// With a range, returns the answer. Without one, returns a RecordSink that
-// folds each record and drops it.
-// A group key must outlive the sink. Return an owning string if it does not.
+// Filter, group, and fold over records. With a range, returns the answer.
+// Without one, returns a RecordSink that folds each record and drops it. A
+// group key must outlive the sink. Return an owning string if it does not.
 
 namespace timeball {
 

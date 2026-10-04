@@ -20,9 +20,8 @@
 #include "timeball/node.hpp"
 #include "tl/expected.hpp"
 
-// One timeline. Work completes at
-//   max(dependencies complete, resource free) + cost
-// Cost is the host's, on an Operation, or the node's, for an access.
+// One timeline. Work completes at max(dependencies complete, resource free) +
+// cost Cost is the host's, on an Operation, or the node's, for an access.
 
 namespace timeball {
 
@@ -46,9 +45,9 @@ struct When {
   std::vector<DelayedAfter> after_delay;
 };
 
-// Host-costed work: a compute step or a DMA transfer.
-// Field order is part of Submit({...}). Moving a field still compiles and
-// assigns the wrong member. Re-run the suite after changing this shape.
+// Host-costed work: a compute step or a DMA transfer. Field order is part of
+// Submit({...}). Moving a field still compiles and assigns the wrong member.
+// Re-run the suite after changing this shape.
 struct Operation {
   // A literal, or storage that outlives the engine.
   std::string_view name;
@@ -56,8 +55,8 @@ struct Operation {
   InitiatorId initiator = 0;
   Cycle duration_cycles = 0;
   When when;
-  // Known, distinct resources, excluding resource above. Acquire one unit
-  // of each together; no capacity is held while waiting for the others.
+  // Known, distinct resources, excluding resource above. Acquire one unit of
+  // each together; no capacity is held while waiting for the others.
   std::vector<ResourceId> additional_resources;
 };
 
@@ -109,9 +108,9 @@ struct RecordingSink final : RecordSink {
   }
 };
 
-// Hands every record to two sinks, so a host's own sink and a diagnostic one
-// — timeball/checking_sink.hpp, say — can both watch the same run. Either may
-// be null.
+// Hands every record to two sinks, so a host's own sink and a diagnostic one —
+// timeball/checking_sink.hpp, say — can both watch the same run. Either may be
+// null.
 class BroadcastSink final : public RecordSink {
  public:
   BroadcastSink(RecordSink* first, RecordSink* second)
@@ -137,10 +136,9 @@ struct RunResult {
   std::vector<OperationResult> completed;
 };
 
-// Bookkeeping. Not a public API.
-// Not nested in EventEngine: a nested class with default member initializers
-// makes std::variant's default constructor unusable for a member of that
-// class ([class.mem]).
+// Bookkeeping. Not a public API. Not nested in EventEngine: a nested class with
+// default member initializers makes std::variant's default constructor unusable
+// for a member of that class ([class.mem]).
 namespace detail {
 
 // One visit: the node, the request it received, and when it arrived.
@@ -156,8 +154,8 @@ struct OperationJob {
   Cycle duration = 0;
 };
 
-// Nodes visited so far, and the current Serve result. Cost is not known
-// up front.
+// Nodes visited so far, and the current Serve result. Cost is not known up
+// front.
 struct AccessJob {
   std::vector<Hop> path;
   Route route;
@@ -165,15 +163,15 @@ struct AccessJob {
   ResourceId resource = 0;  // current hop's resource, registered by the engine
 };
 
-// One submitted operation or access, until it completes.
-// An access with no id is a node's own traffic. Kind is one alternative.
+// One submitted operation or access, until it completes. An access with no id
+// is a node's own traffic. Kind is one alternative.
 struct Job {
   EventId id = 0;
   std::string_view name;
   InitiatorId initiator = 0;
   std::uint32_t priority = 0;
-  // Host submission order, then order within the access that caused it.
-  // Not the order the engine allocated the slot.
+  // Host submission order, then order within the access that caused it. Not the
+  // order the engine allocated the slot.
   std::uint64_t sequence = 0;
   std::uint64_t sub = 0;
   Cycle ready = 0;        // its own constraint, then its dependencies'
@@ -193,8 +191,8 @@ struct Completion {
   bool done = false;
 };
 
-// At one cycle: completions, then a freed resource, then new arrivals.
-// Each event carries only its own fields.
+// At one cycle: completions, then a freed resource, then new arrivals. Each
+// event carries only its own fields.
 struct StartEvent {
   Cycle arrival = 0;  // when it reached this resource; first come, served
   std::uint32_t priority = 0;
@@ -212,8 +210,8 @@ struct WakeEvent {
   ResourceId resource = 0;  // wakes carry no other order
 };
 
-// Total order, so equal keys do not fall through to the heap.
-// The comparator, not the variant declaration, defines phase precedence.
+// Total order, so equal keys do not fall through to the heap. The comparator,
+// not the variant declaration, defines phase precedence.
 struct Entry {
   Cycle time = 0;
   std::variant<StartEvent, WakeEvent, FinishEvent> event;
@@ -223,8 +221,8 @@ struct Later {
   bool operator()(const Entry& a, const Entry& b) const;
 };
 
-// Earliest arrival, then higher priority, then submission order.
-// Waiting queues hold Start events only.
+// Earliest arrival, then higher priority, then submission order. Waiting queues
+// hold Start events only.
 struct EarlierArrival {
   bool operator()(const StartEvent& a, const StartEvent& b) const;
 };
@@ -243,20 +241,20 @@ enum class JobKind : std::uint8_t { kOperation, kAccess };
 
 }  // namespace detail
 
-// Why CompletionOf has no cycle. kPending: not run. kRetired: forgotten
-// after the horizon. An id this engine never issued asserts.
+// Why CompletionOf has no cycle. kPending: not run. kRetired: forgotten after
+// the horizon. An id this engine never issued asserts.
 enum class Absent { kPending, kRetired };
 
 class EventEngine final {
  public:
   // A resource with no name or no capacity asserts.
   ResourceId AddResource(ResourceSpec spec);
-  // An access and host operations may contend for one existing Resource.
-  // The node and Resource must have the same name.
+  // An access and host operations may contend for one existing Resource. The
+  // node and Resource must have the same name.
   void BindAccessNode(AccessNode& node, ResourceId resource);
 
-  // True when Submit would accept op. Ask in a release build, where
-  // Submit's asserts are compiled out.
+  // True when Submit would accept op. Ask in a release build, where Submit's
+  // asserts are compiled out.
   [[nodiscard]] bool Accepts(const Operation& op) const;
   // Whether SubmitAccess would take an access with these constraints.
   [[nodiscard]] bool Accepts(const When& when) const;
@@ -271,8 +269,8 @@ class EventEngine final {
   // afterwards may begin earlier. Ties fall to submission order.
   RunResult RunUntil(Cycle horizon, RecordSink* sink = nullptr);
 
-  // Runs until idle. Promises nothing. Submit every agent before the call
-  // that should order them together.
+  // Runs until idle. Promises nothing. Submit every agent before the call that
+  // should order them together.
   RunResult RunUntilIdle(RecordSink* sink = nullptr);
 
   // Nothing may begin before this.
@@ -301,8 +299,8 @@ class EventEngine final {
   using Resource = detail::Resource;
   using JobKind = detail::JobKind;
 
-  // Schedules a writeback. No id, nobody waiting. priority and depth are
-  // the completing access's.
+  // Schedules a writeback. No id, nobody waiting. priority and depth are the
+  // completing access's.
   void Enqueue(std::size_t causing_job, std::uint32_t priority,
                std::uint32_t depth, Cycle at, AccessNode& to, const Request& r);
 
@@ -324,19 +322,19 @@ class EventEngine final {
   std::deque<Resource> resources_;
   std::unordered_map<const AccessNode*, ResourceId> node_resources_;
 
-  // Live jobs only: a slot is reused once its job completes. A deque, so a
-  // job stays put while a node completing it sends traffic of its own.
+  // Live jobs only: a slot is reused once its job completes. A deque, so a job
+  // stays put while a node completing it sends traffic of its own.
   std::deque<Job> jobs_;
   std::vector<std::size_t> free_jobs_;
   std::priority_queue<Entry, std::vector<Entry>, Later> queue_;
   std::unordered_map<EventId, std::vector<std::size_t>> waiting_;
 
-  // What outlives a job: the completion of every submitted id not yet
-  // retired, so later work can depend on it. Ids from next_id_ down that are
-  // missing here have been retired.
+  // What outlives a job: the completion of every submitted id not yet retired,
+  // so later work can depend on it. Ids from next_id_ down that are missing
+  // here have been retired.
   std::unordered_map<EventId, Completion> live_;
-  // Completed ids by completion cycle, earliest first, so retiring touches
-  // only what is retired rather than everything live.
+  // Completed ids by completion cycle, earliest first, so retiring touches only
+  // what is retired rather than everything live.
   std::priority_queue<std::pair<Cycle, EventId>,
                       std::vector<std::pair<Cycle, EventId>>, std::greater<>>
       completed_;

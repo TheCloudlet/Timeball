@@ -12,14 +12,14 @@
 #include "timeball/event_engine.hpp"
 #include "timeball/node.hpp"
 
-// Where accesses come from. Not part of node.hpp: a node type should not
-// have to compile the agent that submits to it.
+// Where accesses come from. Not part of node.hpp: a node type should not have
+// to compile the agent that submits to it.
 
 namespace timeball {
 
-// In-order agent, one access outstanding. Not an AccessNode.
-// Issue only submits. The next access starts when the previous one
-// completed. Several initiators on one engine are ordered by arrival.
+// In-order agent, one access outstanding. Not an AccessNode. Issue only
+// submits. The next access starts when the previous one completed. Several
+// initiators on one engine are ordered by arrival.
 class Initiator {
   EventEngine* engine_;
   InitiatorId id_;
@@ -60,8 +60,8 @@ class Initiator {
     return *completion;
   }
 
-  // Submits one access. It starts once the previous one completed.
-  // Returns its id.
+  // Submits one access. It starts once the previous one completed. Returns its
+  // id.
   EventId Issue(AccessNode& into, uint64_t addr, AccessType type) {
     When when{.ready_cycle = std::max(ready_at_, engine_->Horizon()),
               .priority = priority_};

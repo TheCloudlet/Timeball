@@ -31,8 +31,8 @@ Overload(Fns...) -> Overload<Fns...>;
 // std::get<T> re-checks the active alternative at runtime and throws if it
 // disagrees — a check every call site here already knows the answer to, by
 // construction, and pays for anyway. A disagreement here is an assert, not a
-// throw the optimizer cannot see through. This is that assert, at every one
-// of those call sites, in the one place.
+// throw the optimizer cannot see through. This is that assert, at every one of
+// those call sites, in the one place.
 template <typename T, typename V>
 auto& Unwrap(V& v) {
   auto* p = std::get_if<T>(&v);
@@ -76,9 +76,9 @@ bool detail::EarlierArrival::operator()(const StartEvent& a,
 
 // The queue's order is the timeline's order. Earlier first; at one cycle,
 // finishing work before arriving work, so whatever a completion releases
-// competes with everything else arriving then. Among arrivals, first come
-// first served, then higher priority, then submission order. The phase rank
-// is explicit, so variant declaration order does not affect it.
+// competes with everything else arriving then. Among arrivals, first come first
+// served, then higher priority, then submission order. The phase rank is
+// explicit, so variant declaration order does not affect it.
 bool detail::Later::operator()(const Entry& a, const Entry& b) const {
   if (a.time != b.time) {
     return a.time > b.time;
@@ -200,11 +200,11 @@ std::size_t EventEngine::NewJob(JobKind kind) {
   } else {
     index = free_jobs_.back();
     free_jobs_.pop_back();
-    // Reset field by field: a reused slot's vectors keep their capacity, so
-    // it allocates nothing. (Assigning Job{} would free them, and the next
-    // access to land here would allocate its path again.) after is always
-    // there to recover; path only if the slot's previous occupant was itself
-    // an access — an operation never allocated one to reuse.
+    // Reset field by field: a reused slot's vectors keep their capacity, so it
+    // allocates nothing. (Assigning Job{} would free them, and the next access
+    // to land here would allocate its path again.) after is always there to
+    // recover; path only if the slot's previous occupant was itself an access —
+    // an operation never allocated one to reuse.
     Job& job = jobs_[index];
     std::vector<EventId> after = std::move(job.after);
     after.clear();
@@ -281,8 +281,8 @@ void EventEngine::Enqueue(std::size_t causing_job, std::uint32_t priority,
   const std::size_t index = NewJob(JobKind::kAccess);
   Job& job = jobs_[index];
   job.name = r.type == AccessType::kStore ? "store" : "load";
-  // Ordered after the access that caused it, then by how much node traffic
-  // came before it: both are the same however the host windows its work.
+  // Ordered after the access that caused it, then by how much node traffic came
+  // before it: both are the same however the host windows its work.
   job.sequence = jobs_[causing_job].sequence;
   job.sub = ++sends_;
   job.priority = priority;
@@ -319,8 +319,8 @@ void EventEngine::Resolve(std::size_t index) {
   }
 }
 
-// The job reaches its resource at `at` — for an access, the node at the end
-// of its path.
+// The job reaches its resource at `at` — for an access, the node at the end of
+// its path.
 void EventEngine::Arrive(std::size_t index, Cycle at) {
   Job& job = jobs_[index];
   job.start_pending = true;
@@ -406,8 +406,8 @@ void EventEngine::Start(const Entry& e) {
                                     .job = start.job}});
 }
 
-// Retry the first waiter. It stays queued at every required resource until
-// all are available; several resource wakes enqueue only one start.
+// Retry the first waiter. It stays queued at every required resource until all
+// are available; several resource wakes enqueue only one start.
 void EventEngine::Admit(Resource& resource, Cycle at) {
   if (resource.waiting.empty()) {
     return;
@@ -446,9 +446,9 @@ void EventEngine::Finish(const Entry& e, RunResult& run, RecordSink* sink) {
     return;
   }
   if (access != nullptr) {
-    // Served. Every node it visited learns so now, innermost first; any
-    // traffic it sends back inherits this access's priority and sits one
-    // level below the node that sent it.
+    // Served. Every node it visited learns so now, innermost first; any traffic
+    // it sends back inherits this access's priority and sits one level below
+    // the node that sent it.
     const std::uint32_t priority = job.priority;
     for (std::size_t i = access->path.size(); i-- > 0;) {
       const Hop& hop = access->path[i];

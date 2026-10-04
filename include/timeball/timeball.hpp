@@ -3,9 +3,9 @@
 #ifndef TIMEBALL_TIMEBALL_HPP
 #define TIMEBALL_TIMEBALL_HPP
 
-// Embedding headers: the timeline, the node types, and their vocabulary.
-// The SQLite store is timeball/event_store.hpp and is not included here.
-// A new node type needs only timeball/node.hpp.
+// Embedding headers: the timeline, the node types, and their vocabulary. The
+// SQLite store is timeball/event_store.hpp and is not included here. A new node
+// type needs only timeball/node.hpp.
 
 #include "timeball/address_map.hpp"
 #include "timeball/cache.hpp"

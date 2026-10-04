@@ -29,8 +29,8 @@ TEST(EventEngine, IndependentThenContendedThenDependentOperations) {
   EXPECT_EQ(trace.records[0].start, 0u);
   EXPECT_EQ(trace.records[1].start, 0u);
 
-  // Two operations on the same resource, submitted with the same ready
-  // cycle: the second queues behind the first.
+  // Two operations on the same resource, submitted with the same ready cycle:
+  // the second queues behind the first.
   engine.Submit({"dma_a", dma, 0, 4, {10, {}}});
   const EventId contended_b = engine.Submit({"dma_b", dma, 1, 3, {10, {}}});
   const RunResult contended = RunChecked(engine, checker, &trace);
@@ -38,8 +38,8 @@ TEST(EventEngine, IndependentThenContendedThenDependentOperations) {
   EXPECT_EQ(contended.completed[0].service_cycle, 10u);
   EXPECT_EQ(contended.completed[1].service_cycle, 14u);
 
-  // A dependent operation waits for its dependency's actual completion, not
-  // its own ready cycle.
+  // A dependent operation waits for its dependency's actual completion, not its
+  // own ready cycle.
   engine.Submit({"dependent", core, 0, 2, {0, {contended_b}}});
   const RunResult dependency = RunChecked(engine, checker, &trace);
   ASSERT_EQ(dependency.completed.size(), 1u);
@@ -282,9 +282,9 @@ TEST(EventEngine, NodeAccessesComposeWithQueuedAtomicWorkAcrossWindows) {
 }
 
 TEST(EventEngine, ADependencyMustAlreadyBeSubmitted) {
-  // Dependencies name only ids this engine already returned, so the
-  // dependency graph is acyclic by construction. A host that must reject a
-  // bad program in a release build asks first rather than being told after.
+  // Dependencies name only ids this engine already returned, so the dependency
+  // graph is acyclic by construction. A host that must reject a bad program in
+  // a release build asks first rather than being told after.
   EventEngine engine;
   const ResourceId resource = engine.AddResource({"r", 1});
   const EventId first = engine.Submit({"first", resource, 0, 1, {0, {}}});
@@ -321,8 +321,8 @@ TEST(EventEngine, CompletionPastTheEndOfTimeSaturates) {
 TEST(EventEngine, OperationsAndAccessesShareOneTimeline) {
   // A host's cost table and a memory hierarchy on one timeline: a core
   // dispatches, the dispatched work loads its operand through a cache, and a
-  // MAC array computes once the operand has arrived. Static costs and a
-  // node's dynamic cost compose through the same dependencies.
+  // MAC array computes once the operand has arrived. Static costs and a node's
+  // dynamic cost compose through the same dependencies.
   MainMemory<"DRAM"> dram(100);
   Cache<"L1", 1, 2, 64, LRUPolicy, 4> l1(&dram);
   EventEngine engine;
@@ -373,8 +373,8 @@ TEST(EventEngine, CompletionFillsCacheBeforeAnArrivalAtTheSameCycle) {
 
 // Three agents sharing a memory behind private caches, each issuing at fixed
 // cycles, plus a stream of fixed-cost operations. Submitted in windows of
-// `window` cycles (0: all at once), run window by window. Returns every
-// record, one line each.
+// `window` cycles (0: all at once), run window by window. Returns every record,
+// one line each.
 static std::vector<std::string> SharedMemoryRun(Cycle window) {
   MainMemory<"DRAM"> dram(100);
   Cache<"L2", 16, 4, 64, LRUPolicy, 10> l2(&dram);
@@ -436,10 +436,10 @@ static std::string FirstDifference(const std::vector<std::string>& a,
 }
 
 TEST(EventEngine, RunningInWindowsMatchesRunningAllAtOnce) {
-  // A host that submits work up to a cycle and runs to it gets exactly what
-  // one that submits everything first gets: every record, in order. Several
-  // agents contend at the shared levels, so a window that let a later arrival
-  // be served early would show here.
+  // A host that submits work up to a cycle and runs to it gets exactly what one
+  // that submits everything first gets: every record, in order. Several agents
+  // contend at the shared levels, so a window that let a later arrival be
+  // served early would show here.
   const auto all_at_once = SharedMemoryRun(0);
   ASSERT_GT(all_at_once.size(), 5000u);
   EXPECT_EQ(FirstDifference(SharedMemoryRun(500), all_at_once), "");
@@ -530,8 +530,8 @@ TEST(EventEngine, WorkBeforeTheHorizonIsRetired) {
 }
 
 TEST(EventEngine, NothingMayBeSubmittedBeforeTheHorizon) {
-  // The window is a promise: once run to a cycle, the host submits nothing
-  // that could begin earlier. A release build asks before submitting.
+  // The window is a promise: once run to a cycle, the host submits nothing that
+  // could begin earlier. A release build asks before submitting.
   EventEngine engine;
   const ResourceId r = engine.AddResource({"r", 1});
   RunChecked(engine, 100);
@@ -568,8 +568,8 @@ static std::size_t PeakInFlight(std::uint64_t windows) {
 }
 
 TEST(EventEngine, InFlightWorkStaysBoundedAcrossWindows) {
-  // What the engine holds is what is in flight, not everything ever
-  // submitted: twice the run holds no more.
+  // What the engine holds is what is in flight, not everything ever submitted:
+  // twice the run holds no more.
   const std::size_t peak = PeakInFlight(200);  // 4,000 accesses
   EXPECT_EQ(PeakInFlight(400), peak);          // 8,000 accesses
   EXPECT_LT(peak, 100u);

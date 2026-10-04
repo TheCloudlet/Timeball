@@ -1,13 +1,13 @@
 // Copyright 2025-2026 Yi-Ping Pan (Cloudlet)
 //
-// A pure, deliberately independent re-derivation of the event engine's own
-// rule — completion = max(dependencies complete, resource free) + cost, a
-// resource served in arrival order — used only to check the real engine
-// against it (test_reference_scheduler.cpp). It shares no code with
-// EventEngine: no heap, no per-resource waiting queue, no windowing. It walks
-// forward one cycle at a time and asks, literally, who is waiting and who is
-// free, which is slow (O(cycles * ops)) and exactly the point: a bug shaped
-// like the engine's own implementation cannot also be shaped like this one.
+// A pure, deliberately independent re-derivation of the event engine's own rule
+// — completion = max(dependencies complete, resource free) + cost, a resource
+// served in arrival order — used only to check the real engine against it
+// (test_reference_scheduler.cpp). It shares no code with EventEngine: no heap,
+// no per-resource waiting queue, no windowing. It walks forward one cycle at a
+// time and asks, literally, who is waiting and who is free, which is slow
+// (O(cycles * ops)) and exactly the point: a bug shaped like the engine's own
+// implementation cannot also be shaped like this one.
 //
 // Test-only. Not part of the library Timeball ships.
 
@@ -44,8 +44,8 @@ struct SpecResult {
   Cycle finish = 0;
 };
 
-// nullopt only if max_cycle was too small to let every op finish, which
-// signals a bug in the caller's bound, not in the scheduler.
+// nullopt only if max_cycle was too small to let every op finish, which signals
+// a bug in the caller's bound, not in the scheduler.
 inline std::optional<std::vector<SpecResult>> Schedule(
     const std::vector<SpecOp>& ops,
     const std::vector<std::uint32_t>& capacities) {
@@ -68,10 +68,9 @@ inline std::optional<std::vector<SpecResult>> Schedule(
 
   for (Cycle t = 0; remaining > 0 && t <= max_cycle; ++t) {
     // An op's arrival is knowable once every dependency is resolved — started
-    // and finished are always assigned together below, in the same
-    // statement, so checking one has a value is the same as checking the
-    // other, and this is the true completion whether or not "now" has
-    // reached it yet.
+    // and finished are always assigned together below, in the same statement,
+    // so checking one has a value is the same as checking the other, and this
+    // is the true completion whether or not "now" has reached it yet.
     for (std::size_t i = 0; i < n; ++i) {
       if (arrival[i].has_value()) {
         continue;
@@ -105,8 +104,8 @@ inline std::optional<std::vector<SpecResult>> Schedule(
       }
       return x < y;
     });
-    // An earlier waiter prevents overtaking on every resource it needs,
-    // but reserves no capacity while another required resource is busy.
+    // An earlier waiter prevents overtaking on every resource it needs, but
+    // reserves no capacity while another required resource is busy.
     std::vector<bool> blocked(capacities.size(), false);
     for (std::size_t i : waiting) {
       std::vector<int> required = ops[i].additional_resources;

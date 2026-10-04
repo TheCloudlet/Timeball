@@ -114,8 +114,8 @@ TEST(CorePortTrace, ApplyASequenceMatchesApplyingEachOneInOrder) {
 
 TEST(CorePortTrace, ReplayingARecordedTraceMatchesRunningItDirectly) {
   // The point of CorePortEvent: record a run, replay it against a *different*
-  // machine, and get exactly what running the same calls directly would —
-  // no functional simulator involved the second time.
+  // machine, and get exactly what running the same calls directly would — no
+  // functional simulator involved the second time.
   MainMemory<"DRAM"> dram(100);
   CommandDevice mac = MacArray();
   EventEngine engine;

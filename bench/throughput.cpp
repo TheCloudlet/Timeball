@@ -5,17 +5,17 @@
 //   throughput [hits|misses|agents]    one scenario per process, so the peak
 //                                      resident size is that scenario's own
 //
-// Each scenario times 2,000,000 accesses through L1 -> L2 -> DRAM, submitted
-// in windows of 10,000 cycles and run window by window, as a long-running host
+// Each scenario times 2,000,000 accesses through L1 -> L2 -> DRAM, submitted in
+// windows of 10,000 cycles and run window by window, as a long-running host
 // would. Output is one line: scenario, accesses per second, the engine's peak
 // in-flight state, and the process's peak resident size.
 //
 // Deliberately timed without timeball/checking_sink.hpp attached: every record
 // costs it a map lookup, and that cost would land inside the number this file
-// exists to measure. Its correctness is covered elsewhere — the same
-// scheduling code path runs, checked, in test_reference_scheduler.cpp and in
-// the CheckingSink-attached tests, and this file's own record stream is
-// compared record-for-record against a prior commit's.
+// exists to measure. Its correctness is covered elsewhere — the same scheduling
+// code path runs, checked, in test_reference_scheduler.cpp and in the
+// CheckingSink-attached tests, and this file's own record stream is compared
+// record-for-record against a prior commit's.
 
 #include <sys/resource.h>
 
@@ -38,8 +38,7 @@ namespace {
 constexpr uint64_t kAccesses = 2'000'000;
 constexpr Cycle kWindow = 10'000;
 // Cycles between one agent's accesses: spaced so the memory keeps up. A
-// saturated memory would measure a queue growing without bound, not the
-// engine.
+// saturated memory would measure a queue growing without bound, not the engine.
 constexpr Cycle kHitSpacing = 20;
 constexpr Cycle kMissSpacing = 150;
 

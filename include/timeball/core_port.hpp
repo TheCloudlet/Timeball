@@ -14,9 +14,9 @@
 #include "timeball/event_engine.hpp"
 #include "timeball/node.hpp"
 
-// A core's load/store path. Retired instructions and the accesses between
-// them become time. Plain addresses enter the memory graph. An address in a
-// device window programs that device.
+// A core's load/store path. Retired instructions and the accesses between them
+// become time. Plain addresses enter the memory graph. An address in a device
+// window programs that device.
 
 namespace timeball {
 
@@ -25,8 +25,8 @@ class MmioDevice {
  public:
   virtual ~MmioDevice() = default;
 
-  // Names the device's resource on the timeline. Static storage: a literal,
-  // or a name that outlives the engine.
+  // Names the device's resource on the timeline. Static storage: a literal, or
+  // a name that outlives the engine.
   [[nodiscard]] virtual std::string_view DeviceName() const = 0;
 
   // Cycles of work this write launches, or 0 if it only sets a parameter.
@@ -36,10 +36,9 @@ class MmioDevice {
   [[nodiscard]] virtual bool WaitsForWork(uint64_t offset) const = 0;
 };
 
-// Parameter registers, a start register, and a status register.
-// Parameter i is the 8-byte register at offset 8 * i. A write to start
-// launches work costed from the parameters. A read of status waits until
-// that work has finished.
+// Parameter registers, a start register, and a status register. Parameter i is
+// the 8-byte register at offset 8 * i. A write to start launches work costed
+// from the parameters. A read of status waits until that work has finished.
 class CommandDevice final : public MmioDevice {
  public:
   using Cost = std::function<Cycle(const std::vector<uint64_t>& params)>;
@@ -68,16 +67,16 @@ struct CorePortConfig {
   InitiatorId core = 0;   // whose accesses these are
 };
 
-// One in-order core. Each call waits for that core's previous work.
-// One CorePort per engine. Sync runs to this core's time and promises nothing
+// One in-order core. Each call waits for that core's previous work. One
+// CorePort per engine. Sync runs to this core's time and promises nothing
 // begins earlier. It does not interleave several cores.
 class CorePort {
  public:
   // The engine and memory must outlive the CorePort.
   CorePort(EventEngine& engine, AccessNode& memory, CorePortConfig config = {});
 
-  // Register window [base, base + size). Overlap asserts. device must
-  // outlive the CorePort.
+  // Register window [base, base + size). Overlap asserts. device must outlive
+  // the CorePort.
   void Attach(uint64_t base, uint64_t size, MmioDevice& device);
 
   // The core retired count instructions since the last call.
@@ -85,8 +84,8 @@ class CorePort {
   void OnLoad(uint64_t addr);
   void OnStore(uint64_t addr, uint64_t value);
 
-  // Replay recorded OnInstructions, OnLoad, and OnStore calls. The stream
-  // can be run against another CorePort without the functional simulator.
+  // Replay recorded OnInstructions, OnLoad, and OnStore calls. The stream can
+  // be run against another CorePort without the functional simulator.
   void Apply(const CorePortEvent& event);
   void Apply(std::span<const CorePortEvent> events);
 

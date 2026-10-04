@@ -22,9 +22,9 @@ template <FixedString Name, size_t Sets, size_t Ways, size_t BlockSize,
           typename ReplacePolicy = LRUPolicy, size_t HitLatency = 1,
           bool InstructionCache = false>
 class Cache : public AccessNode {
-  // Sets and BlockSize index the address, so both must be powers of two for
-  // the set/tag split to be a bitfield extract. Ways is only a loop bound and
-  // a stride, so an odd associativity is legitimate and is not rejected.
+  // Sets and BlockSize index the address, so both must be powers of two for the
+  // set/tag split to be a bitfield extract. Ways is only a loop bound and a
+  // stride, so an odd associativity is legitimate and is not rejected.
   static_assert(Sets > 0 && (Sets & (Sets - 1)) == 0,
                 "Sets must be a non-zero power of two");
   static_assert(BlockSize > 0 && (BlockSize & (BlockSize - 1)) == 0,
@@ -37,8 +37,8 @@ class Cache : public AccessNode {
     uint64_t tag = 0;
   };
 
-  // Not owned. Several caches may share one successor, which is why this is
-  // not a template parameter. The successor must outlive this cache.
+  // Not owned. Several caches may share one successor, which is why this is not
+  // a template parameter. The successor must outlive this cache.
   AccessNode* next_;
 
   // [Set0_Way0, Set0_Way1, ... | Set1_Way0, ...]
@@ -74,8 +74,8 @@ class Cache : public AccessNode {
     return Name.value;
   }
 
-  // Held for the lookup only. A miss is not also held for the round trip,
-  // or that time would be charged twice.
+  // Held for the lookup only. A miss is not also held for the round trip, or
+  // that time would be charged twice.
   Route Serve(const Request& r) override {
     if (r.type == AccessType::kFence) {
       // Instruction-cache invalidation must not discard dirty data-cache lines.

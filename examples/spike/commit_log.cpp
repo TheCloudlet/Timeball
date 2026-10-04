@@ -99,11 +99,10 @@ bool ParseHexToken(std::string_view token, uint64_t& out) {
 // One Spike commit line:
 //   core   0: <priv> 0x<pc> (0x<insn>) [reg writes...] [mem 0x<addr>
 //   [0x<value>]]...
-// A line with no mem record is one retired instruction. Each mem record is
-// a load, or a store when a value follows the address. Width is not kept.
-// The reg-write dump between the insn and the first mem is ignored: the
-// core port language has no place for it, and a load's value is not its
-// address.
+// A line with no mem record is one retired instruction. Each mem record is a
+// load, or a store when a value follows the address. Width is not kept. The
+// reg-write dump between the insn and the first mem is ignored: the core port
+// language has no place for it, and a load's value is not its address.
 bool ParseCommitLine(std::string_view line, uint64_t& hart,
                      std::vector<CorePortEvent>& events, std::string& error) {
   Scan scan{line};
@@ -149,8 +148,8 @@ bool ParseCommitLine(std::string_view line, uint64_t& hart,
       error = "memory address is not hex";
       return false;
     }
-    // A store prints the value after the address. A load does not, so the
-    // next token is another "mem" or the end of the line.
+    // A store prints the value after the address. A load does not, so the next
+    // token is another "mem" or the end of the line.
     if (i + 2 < tokens.size() && tokens[i + 2] != "mem") {
       uint64_t value = 0;
       if (!ParseHexToken(tokens[i + 2], value)) {

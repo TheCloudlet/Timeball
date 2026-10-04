@@ -3,11 +3,11 @@
 // Timing a functional simulator by hooking only its load/store path.
 //
 // The "ISS" below stands in for yours: it executes a program and, as it does,
-// reports the instructions it retires and the loads and stores it performs.
-// The program runs a dispatch core that feeds a vector unit and a MAC array
-// through memory-mapped registers — write the sizes, write START, poll
-// STATUS — which is how software drives an accelerator. Timeball sees nothing
-// else, and answers how long it took and where the time went.
+// reports the instructions it retires and the loads and stores it performs. The
+// program runs a dispatch core that feeds a vector unit and a MAC array through
+// memory-mapped registers — write the sizes, write START, poll STATUS — which
+// is how software drives an accelerator. Timeball sees nothing else, and
+// answers how long it took and where the time went.
 
 #include <cassert>
 #include <cinttypes>
@@ -45,9 +45,9 @@ struct Totals {
 };
 
 // ---- A stand-in functional simulator ---------------------------------------
-// It computes nothing here; a real one would execute the program. What
-// matters is where it calls the core_port: once per retired instruction batch,
-// and once per load or store.
+// It computes nothing here; a real one would execute the program. What matters
+// is where it calls the core_port: once per retired instruction batch, and once
+// per load or store.
 class FakeIss {
  public:
   explicit FakeIss(CorePort& core_port) : core_port_(&core_port) {}
@@ -81,8 +81,8 @@ int main() {
       {.dram_latency = kDramCycles, .core_port = {.cpi = 1, .mmio_cycles = 2}});
   CorePort& core_port = machine.GetCorePort();
 
-  // Vector op over n elements: n / lanes cycles. Multiply of MxK by KxN:
-  // M*N*K / (MACs per cycle).
+  // Vector op over n elements: n / lanes cycles. Multiply of MxK by KxN: M*N*K
+  // / (MACs per cycle).
   CommandDevice vpu("vpu", 3, kStart, kStatus,
                     [](const std::vector<uint64_t>& p) {
                       return (p[0] + kVectorLanes - 1) / kVectorLanes;
@@ -106,9 +106,9 @@ int main() {
   // engine").
   CheckingSink checker;
 
-  // Eight 64x64x64 tiles. Per tile: load the operand descriptors, have the
-  // VPU preprocess A, then the MAC multiply — the MAC of one tile overlapping
-  // the core's work on the next.
+  // Eight 64x64x64 tiles. Per tile: load the operand descriptors, have the VPU
+  // preprocess A, then the MAC multiply — the MAC of one tile overlapping the
+  // core's work on the next.
   for (uint64_t tile = 0; tile < 8; ++tile) {
     iss.Compute(20);
     for (uint64_t line = 0; line < 4; ++line) {

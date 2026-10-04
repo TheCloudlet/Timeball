@@ -1,9 +1,9 @@
 // Copyright 2025-2026 Yi-Ping Pan (Cloudlet)
 //
-// Nothing here runs: every check is a static_assert, so a violation is a
-// build failure rather than a test failure. This is the proof that Cycle,
-// EventId, ResourceId and InitiatorId cannot be substituted for one
-// another, deliberately or by mistake — the property issue #27 asks for.
+// Nothing here runs: every check is a static_assert, so a violation is a build
+// failure rather than a test failure. This is the proof that Cycle, EventId,
+// ResourceId and InitiatorId cannot be substituted for one another,
+// deliberately or by mistake — the property issue #27 asks for.
 
 #include <type_traits>
 
@@ -34,10 +34,9 @@ static_assert(
     kNeitherConverts<ResourceId, InitiatorId>,
     "a resource id must not stand in for an initiator id, or the reverse");
 
-// Each is still, deliberately, implicitly constructible from its own
-// underlying integer — that direction is what keeps `Cycle t = 0` and
-// `.initiator_id = agent` working — and only explicitly convertible back
-// out to it.
+// Each is still, deliberately, implicitly constructible from its own underlying
+// integer — that direction is what keeps `Cycle t = 0` and `.initiator_id =
+// agent` working — and only explicitly convertible back out to it.
 static_assert(std::is_convertible_v<std::uint64_t, Cycle>);
 static_assert(std::is_convertible_v<std::uint64_t, EventId>);
 static_assert(std::is_convertible_v<std::uint32_t, ResourceId>);

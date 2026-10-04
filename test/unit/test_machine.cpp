@@ -20,9 +20,9 @@ using TinyMachine = Machine<"L1", 1, 1, 64, LRUPolicy, 2>;
 }  // namespace
 
 TEST(Machine, WiresACompleteMachineACoreCanDriveThroughItsCorePort) {
-  // Geometry (template args) and runtime numbers (MachineConfig) are all a
-  // host supplies; everything else — MainMemory, Cache, EventEngine, CorePort —
-  // is wired by Machine itself.
+  // Geometry (template args) and runtime numbers (MachineConfig) are all a host
+  // supplies; everything else — MainMemory, Cache, EventEngine, CorePort — is
+  // wired by Machine itself.
   TinyMachine machine({.dram_latency = 100, .core_port = {.cpi = 1}});
   CorePort& core_port = machine.GetCorePort();
 
@@ -75,10 +75,10 @@ TEST(Machine, MemoryIsTheNodeADirectAccessCanIssueInto) {
 }
 
 TEST(Machine, AHostSuppliedTopologyRoutesThroughAnAddressMap) {
-  // More than one memory region: the host builds its own AddressMap and
-  // caches, outside Machine, and hands over the entry node. Machine still
-  // owns only the EventEngine and CorePort — the geometry TinyMachine was
-  // instantiated with goes unused for this constructor.
+  // More than one memory region: the host builds its own AddressMap and caches,
+  // outside Machine, and hands over the entry node. Machine still owns only the
+  // EventEngine and CorePort — the geometry TinyMachine was instantiated with
+  // goes unused for this constructor.
   MainMemory<"Far"> far(100);
   Cache<"Region1", 1, 1, 64, LRUPolicy, 2> region1(&far);
   Scratchpad<"Region2"> region2(5);

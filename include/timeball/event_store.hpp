@@ -38,22 +38,22 @@ class EventStore final : public RecordSink {
   // Creates or truncates the database at path. A filesystem or SQLite error
   // makes IsOpen() false; subsequent record and task calls do nothing.
   explicit EventStore(const std::string& path);
-  // Borrow an open database and replace the ops, deps, and tasks tables.
-  // The caller owns its transaction and connection, which must outlive this
-  // store. Close only finalizes this store's writes; the caller must check it
-  // before committing and publishing the database.
+  // Borrow an open database and replace the ops, deps, and tasks tables. The
+  // caller owns its transaction and connection, which must outlive this store.
+  // Close only finalizes this store's writes; the caller must check it before
+  // committing and publishing the database.
   explicit EventStore(sqlite3& database);
   ~EventStore() override;
 
-  // False after an open or write failure, or after Close().
-  // Record and task calls are then no-ops.
+  // False after an open or write failure, or after Close(). Record and task
+  // calls are then no-ops.
   [[nodiscard]] bool IsOpen() const;
   // Empty on success; otherwise includes the path, failed action, and SQLite
   // diagnostic. The view is valid until this store is destroyed.
   [[nodiscard]] std::string_view Error() const;
 
-  // Finish the transaction and close an owned database, or finalize writes
-  // to a borrowed database. The destructor also calls this but cannot report
+  // Finish the transaction and close an owned database, or finalize writes to a
+  // borrowed database. The destructor also calls this but cannot report
   // failure. A borrowed store cannot report the caller's later commit result.
   // Repeated calls return the same success or failure.
   [[nodiscard]] bool Close();

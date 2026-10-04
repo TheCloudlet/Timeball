@@ -144,8 +144,8 @@ void CorePort::Apply(std::span<const CorePortEvent> events) {
 
 void CorePort::Sync(RecordSink* sink) {
   engine_->RunUntilIdle(sink);
-  // Read the answers before the engine may forget them. After an idle run
-  // the only id without a cycle is one a previous window already retired.
+  // Read the answers before the engine may forget them. After an idle run the
+  // only id without a cycle is one a previous window already retired.
   if (last_ != 0) {
     const auto completion = engine_->CompletionOf(last_);
     if (completion) {
@@ -169,9 +169,9 @@ void CorePort::Sync(RecordSink* sink) {
       w.busy_until = Cycle::Max();
     }
   }
-  // Everything the core submits from here depends on its last work, so
-  // nothing can begin before it completed: a safe horizon, and the engine may
-  // forget what finished before it.
+  // Everything the core submits from here depends on its last work, so nothing
+  // can begin before it completed: a safe horizon, and the engine may forget
+  // what finished before it.
   engine_->RunUntil(now_, sink);
 }
 

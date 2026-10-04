@@ -21,8 +21,8 @@ Cycle Finish(MachineT& machine, const std::vector<CorePortEvent>& events) {
   return core_port.Now();
 }
 
-// Two passes over two cache lines. The one-line cache misses on every
-// line, both passes. The working-set cache hits on the second pass.
+// Two passes over two cache lines. The one-line cache misses on every line,
+// both passes. The working-set cache hits on the second pass.
 std::vector<CorePortEvent> TwoPasses() {
   std::vector<CorePortEvent> events;
   for (int pass = 0; pass < 2; ++pass) {
@@ -44,9 +44,9 @@ TEST(TwoMachines, OneLineCacheFinishesLaterOnTheSameTranscript) {
 }
 
 TEST(TwoMachines, TheCommittedTranscriptKeepsThatOrder) {
-  // The captured log is the whole proxy-kernel run, hundreds of thousands
-  // of events. Sync directly, as the example does: the checking sink keeps
-  // every completion, and that is the small transcript's job above.
+  // The captured log is the whole proxy-kernel run, hundreds of thousands of
+  // events. Sync directly, as the example does: the checking sink keeps every
+  // completion, and that is the small transcript's job above.
   std::ifstream in(TIMEBALL_SPIKE_TRACE);
   ASSERT_TRUE(in.good());
   const auto events = ReadCorePortTrace(in);

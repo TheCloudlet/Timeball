@@ -10,8 +10,8 @@ using namespace timeball;
 
 namespace {
 
-// A Record with every field given explicitly, so a test reads as the shape
-// of the violation it is aimed at rather than a builder's defaults.
+// A Record with every field given explicitly, so a test reads as the shape of
+// the violation it is aimed at rather than a builder's defaults.
 Record Rec(EventId op, std::string_view resource, Cycle arrival, Cycle start,
            Cycle finish, std::vector<EventId>& deps_storage) {
   return Record{.op = op,
@@ -48,9 +48,9 @@ TEST(CheckingSink, PassesOnAWellFormedRun) {
 }
 
 TEST(CheckingSink, PassesOnManyAgentsSharingCachesAndAWindowedRun) {
-  // The scenario several agents contending at shared levels, run once
-  // straight through and once in narrow windows: the richest case the engine
-  // handles, and the one a real defect would most likely show up in.
+  // The scenario several agents contending at shared levels, run once straight
+  // through and once in narrow windows: the richest case the engine handles,
+  // and the one a real defect would most likely show up in.
   MainMemory<"DRAM"> dram(100);
   Cache<"L2", 16, 4, 64, LRUPolicy, 10> l2(&dram);
   Cache<"L1a", 4, 2, 64, LRUPolicy, 2> l1a(&l2);
@@ -154,9 +154,9 @@ TEST(CheckingSink, RetireForgetsOldCompletionsWithoutFalsePositives) {
   checker.OnRecord(Rec(1, "a", 0, 0, 5, none));
   checker.Retire(6);  // strictly past op 1's finish, so it is truly forgotten
 
-  // A dependency on the now-forgotten op 1 is no longer checkable and must
-  // not be reported as a violation: retiring must not turn into false
-  // positives on ordinary windowed use.
+  // A dependency on the now-forgotten op 1 is no longer checkable and must not
+  // be reported as a violation: retiring must not turn into false positives on
+  // ordinary windowed use.
   std::vector<EventId> dep_on_1{1};
   checker.OnRecord(Rec(2, "b", 10, 10, 11, dep_on_1));
   EXPECT_TRUE(checker.Ok());
@@ -164,8 +164,8 @@ TEST(CheckingSink, RetireForgetsOldCompletionsWithoutFalsePositives) {
 
 TEST(CheckingSink, StillCatchesADependencyViolationBeforeAnythingIsRetired) {
   // Retire() trades detection power for a bounded memory; before it is ever
-  // called there is nothing to be ambiguous about, so a missing dependency
-  // is still exactly what it looks like: a real violation.
+  // called there is nothing to be ambiguous about, so a missing dependency is
+  // still exactly what it looks like: a real violation.
   CheckingSink checker;
   std::vector<EventId> dep_on_99{99};
   checker.OnRecord(Rec(1, "a", 10, 10, 11, dep_on_99));

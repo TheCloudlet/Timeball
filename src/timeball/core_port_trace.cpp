@@ -15,8 +15,8 @@ namespace timeball {
 namespace {
 
 // Hex (0x-prefixed) or decimal, the whole token and nothing but it.
-// std::from_chars does not skip a "0x" prefix itself, so it is stripped
-// first when present.
+// std::from_chars does not skip a "0x" prefix itself, so it is stripped first
+// when present.
 bool ParseNumber(std::string_view token, uint64_t& out) {
   int base = 10;
   if (token.size() > 2 && token[0] == '0' &&
@@ -33,10 +33,10 @@ bool ParseNumber(std::string_view token, uint64_t& out) {
   return ec == std::errc{} && ptr == end;
 }
 
-// Reads exactly as many more whitespace-separated numeric fields as values
-// has slots for, in order — false if a field is missing, is not a number,
-// or a field remains after the last one asked for. One shape shared by all
-// three event kinds, which otherwise differ only in field count.
+// Reads exactly as many more whitespace-separated numeric fields as values has
+// slots for, in order — false if a field is missing, is not a number, or a
+// field remains after the last one asked for. One shape shared by all three
+// event kinds, which otherwise differ only in field count.
 bool ReadFields(std::istringstream& tokens,
                 std::initializer_list<uint64_t*> values) {
   for (uint64_t* value : values) {

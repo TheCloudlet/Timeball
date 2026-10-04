@@ -25,11 +25,11 @@ void CheckingSink::OnRecord(const Record& record) {
                      record.start.value(), record.finish.value())});
   }
 
-  // Only the first record of an operation or access carries what it waited
-  // on; each dependency must already have finished no later than this
-  // arrival, or the record's own cause-and-effect is broken. A dependency
-  // this checker no longer holds is ambiguous once anything has been
-  // retired — see ever_retired_ — so it is not accused past that point.
+  // Only the first record of an operation or access carries what it waited on;
+  // each dependency must already have finished no later than this arrival, or
+  // the record's own cause-and-effect is broken. A dependency this checker no
+  // longer holds is ambiguous once anything has been retired — see
+  // ever_retired_ — so it is not accused past that point.
   for (EventId dep : record.after) {
     const auto it = op_finish_.find(dep);
     if (it == op_finish_.end()) {
@@ -48,9 +48,9 @@ void CheckingSink::OnRecord(const Record& record) {
   }
 
   // Every arrival at this resource, past or present, must agree on order: no
-  // later arrival is served ahead of an earlier one. Kept independently of
-  // the capacity check below — an entry that has long since finished can
-  // still be evidence that it was skipped over.
+  // later arrival is served ahead of an earlier one. Kept independently of the
+  // capacity check below — an entry that has long since finished can still be
+  // evidence that it was skipped over.
   std::vector<std::pair<Cycle, Cycle>>& order =
       order_history_[std::string(record.resource)];
   for (const auto& [arrival, start] : order) {
@@ -71,8 +71,8 @@ void CheckingSink::OnRecord(const Record& record) {
   }
   order.emplace_back(record.arrival, record.start);
 
-  // Capacity: retired as soon as a record can no longer overlap what is
-  // kept — right here, since overlap is exactly what capacity is about.
+  // Capacity: retired as soon as a record can no longer overlap what is kept —
+  // right here, since overlap is exactly what capacity is about.
   std::vector<Active>& active =
       active_by_resource_[std::string(record.resource)];
   std::erase_if(active,
@@ -91,10 +91,10 @@ void CheckingSink::OnRecord(const Record& record) {
 
   if (record.op != 0) {
     // Overwritten on every hop of an access, so the value left once it stops
-    // being called is its last hop's finish — the access's real completion.
-    // A hop of one access can only be recorded once every earlier hop of the
-    // same access already was (each is the previous one's dependent), so
-    // this is never overwritten by an older value arriving late.
+    // being called is its last hop's finish — the access's real completion. A
+    // hop of one access can only be recorded once every earlier hop of the same
+    // access already was (each is the previous one's dependent), so this is
+    // never overwritten by an older value arriving late.
     op_finish_[record.op] = record.finish;
   }
 }

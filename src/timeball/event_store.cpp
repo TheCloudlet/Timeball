@@ -21,8 +21,8 @@ struct EventStore::Impl {
   std::string open_task;
   Cycle open_begin = 0;
   bool task_open = false;
-  // The furthest cycle any record reached, so a task left open at the end of
-  // a run closes at the end of the run rather than at its own start.
+  // The furthest cycle any record reached, so a task left open at the end of a
+  // run closes at the end of the run rather than at its own start.
   Cycle last_cycle = 0;
 
   bool Check(int rc, const char* action) {
@@ -63,9 +63,9 @@ struct EventStore::Impl {
 EventStore::EventStore(const std::string& path)
     : impl_(new Impl{.path = path}) {
   if (sqlite3_open(path.c_str(), &impl_->db) != SQLITE_OK) {
-    // A path that cannot be opened is a runtime condition, not a mistake in
-    // the topology, so this is reported through IsOpen() rather than asserted
-    // away under NDEBUG. Every later call becomes a no-op.
+    // A path that cannot be opened is a runtime condition, not a mistake in the
+    // topology, so this is reported through IsOpen() rather than asserted away
+    // under NDEBUG. Every later call becomes a no-op.
     impl_->error =
         path + ": opening SQLite database: " +
         (impl_->db != nullptr ? sqlite3_errmsg(impl_->db) : "out of memory");

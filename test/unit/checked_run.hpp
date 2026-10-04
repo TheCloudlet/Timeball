@@ -6,10 +6,10 @@
 // rather than calling RunUntilIdle/RunUntil/Sync directly, so the checker is
 // exercised by the whole suite (ticket #23), not only its own tests.
 //
-// The checker here is a fresh one per call, so a test that submits and runs
-// in windows should keep its own CheckingSink across calls instead of using
-// this — see the windowed helpers in test_event_engine.cpp and
-// test_core_port.cpp for that shape.
+// The checker here is a fresh one per call, so a test that submits and runs in
+// windows should keep its own CheckingSink across calls instead of using this —
+// see the windowed helpers in test_event_engine.cpp and test_core_port.cpp for
+// that shape.
 //
 // Test-only. Not part of the library Timeball ships.
 
@@ -46,10 +46,10 @@ inline RunResult RunChecked(EventEngine& engine, Cycle horizon,
   return result;
 }
 
-// For a test that calls this more than once on the same engine — a later
-// call's work may depend on an earlier call's op, which only the same
-// checker instance can still know completed. Report the checker's
-// violations once, after every call is done.
+// For a test that calls this more than once on the same engine — a later call's
+// work may depend on an earlier call's op, which only the same checker instance
+// can still know completed. Report the checker's violations once, after every
+// call is done.
 inline RunResult RunChecked(EventEngine& engine, CheckingSink& checker,
                             RecordSink* sink = nullptr) {
   BroadcastSink both(sink, &checker);

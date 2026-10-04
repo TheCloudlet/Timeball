@@ -2,28 +2,28 @@
 //
 // Property-based check: the real engine against the independent reference in
 // reference_scheduler.hpp, over many random programs. This checks the
-// scheduling rule itself — resources, dependencies, priorities, capacity,
-// ties — the layer where the O(Q^2) requeue bug lived.
+// scheduling rule itself — resources, dependencies, priorities, capacity, ties
+// — the layer where the O(Q^2) requeue bug lived.
 //
 // Three things this deliberately does not attempt, and why:
 //
 // - A node's own dynamic cost (cache hit or miss). Reference-modelling a
-//   stateful cache would mean re-deriving its hit/miss decisions independently
-//   too, which is a different, much larger undertaking than re-deriving the
-//   scheduling rule — and it is already covered by the hand-computed cache
-//   tests and by comparing the full record set against a prior commit.
+// stateful cache would mean re-deriving its hit/miss decisions independently
+// too, which is a different, much larger undertaking than re-deriving the
+// scheduling rule — and it is already covered by the hand-computed cache tests
+// and by comparing the full record set against a prior commit.
 // - Submission in windows. reference_scheduler.hpp answers for the whole
-//   program at once; a windowed run's equivalence to that is already its own
-//   property, checked directly in
-//   EventEngine.RunningInWindowsMatchesRunningAllAtOnce with real multi-agent
-//   contention, rather than duplicated here.
+// program at once; a windowed run's equivalence to that is already its own
+// property, checked directly in
+// EventEngine.RunningInWindowsMatchesRunningAllAtOnce with real multi-agent
+// contention, rather than duplicated here.
 // - Shrinking a failing program to a minimal one. Every program here is fully
-//   determined by its seed, so a failure is reproducible — re-run with that
-//   seed — even though it is not automatically minimised.
+// determined by its seed, so a failure is reproducible — re-run with that seed
+// — even though it is not automatically minimised.
 //
 // initiator is attributed per op for realism (Record::initiator), though the
-// engine never reads it when scheduling — see EventEngine::Start/Finish — so
-// it cannot itself be a source of disagreement between the two.
+// engine never reads it when scheduling — see EventEngine::Start/Finish — so it
+// cannot itself be a source of disagreement between the two.
 
 #include <random>
 #include <string>
@@ -88,8 +88,8 @@ RandomProgram GenerateProgram(std::uint32_t seed, int op_count,
   return program;
 }
 
-// Submits every op in index order, so an op's index equals its submission
-// order — the same tie-break key the engine and the reference both use.
+// Submits every op in index order, so an op's index equals its submission order
+// — the same tie-break key the engine and the reference both use.
 std::vector<reference::SpecResult> RunOnRealEngine(
     const RandomProgram& program) {
   EventEngine engine;

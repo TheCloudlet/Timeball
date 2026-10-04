@@ -5,11 +5,10 @@
 
 #include "timeball/machine.hpp"
 
-// Two machines for one transcript. DRAM latency and hit latency are the
-// same; only the cache's geometry changes. The one-line cache holds a
-// single 64-byte block. The other holds 64 KiB, which covers the data
-// working set of examples/spike/scan.c, including a proxy kernel's own
-// data accesses.
+// Two machines for one transcript. DRAM latency and hit latency are the same;
+// only the cache's geometry changes. The one-line cache holds a single 64-byte
+// block. The other holds 64 KiB, which covers the data working set of
+// examples/spike/scan.c, including a proxy kernel's own data accesses.
 
 namespace timeball {
 

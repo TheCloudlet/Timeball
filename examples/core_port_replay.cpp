@@ -77,9 +77,9 @@ struct Hardware {
   Cycle mmio_cycles;
 };
 
-// Replays events against hw on a fresh engine and memory, and returns how
-// long the recorded program took on that hardware. No functional simulator
-// runs here — only the recorded calls.
+// Replays events against hw on a fresh engine and memory, and returns how long
+// the recorded program took on that hardware. No functional simulator runs here
+// — only the recorded calls.
 Cycle Replay(const std::vector<CorePortEvent>& events, const Hardware& hw) {
   MainMemory<"DRAM"> dram(100);
   CommandDevice mac = MacArray(hw.macs_per_cycle);
@@ -138,8 +138,8 @@ int main() {
   std::printf("replay, %-32s %" PRIu64 " cycles\n", kSlower.label,
               slower_total.value());
 
-  // Same recording, two different replays: the numbers move with the
-  // hardware, not with the (fixed, already-run) functional simulator.
+  // Same recording, two different replays: the numbers move with the hardware,
+  // not with the (fixed, already-run) functional simulator.
   assert(faster_total < direct_total &&
          "faster hardware should finish the same recorded program sooner");
   assert(slower_total > direct_total &&

@@ -1,12 +1,12 @@
 // Copyright 2025-2026 Yi-Ping Pan (Cloudlet)
 //
-// Replays one committed transcript on two machines and prints both
-// completion cycles. The transcript is examples/spike/program.trace, the
-// core port event form of a Spike commit log. Spike is not run here.
+// Replays one committed transcript on two machines and prints both completion
+// cycles. The transcript is examples/spike/program.trace, the core port event
+// form of a Spike commit log. Spike is not run here.
 //
-// These cycles omit instruction fetch: a commit log has no fetch, and
-// none is invented. They are Timeball's timing of the committed accesses,
-// not a comparison against silicon or RTL.
+// These cycles omit instruction fetch: a commit log has no fetch, and none is
+// invented. They are Timeball's timing of the committed accesses, not a
+// comparison against silicon or RTL.
 
 #include <cinttypes>
 #include <cstdio>

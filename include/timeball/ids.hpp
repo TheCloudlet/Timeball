@@ -15,9 +15,9 @@
 namespace timeball {
 
 // An opaque identifier: EventId, ResourceId or InitiatorId. Equality and a
-// total order (so it can be a map key, sorted, or the tiebreak field of a
-// pair) are all it supports — no arithmetic, so two ids of the same kind
-// cannot be added as if they were quantities.
+// total order (so it can be a map key, sorted, or the tiebreak field of a pair)
+// are all it supports — no arithmetic, so two ids of the same kind cannot be
+// added as if they were quantities.
 template <typename Tag, typename T>
 class Id {
  public:
@@ -47,8 +47,8 @@ using InitiatorId = Id<ids_detail::InitiatorTag, std::uint32_t>;
 
 // A point on the timeline. Unlike the id types, Cycle is a quantity: it
 // supports the arithmetic the engine and its hosts need (advancing by a
-// duration, taking a modulus to stride through a window) — but still only
-// with itself, never silently with a ResourceId or a plain integer meant as
+// duration, taking a modulus to stride through a window) — but still only with
+// itself, never silently with a ResourceId or a plain integer meant as
 // something else.
 class Cycle {
  public:
@@ -89,8 +89,7 @@ class Cycle {
 }  // namespace timeball
 
 // Cycle has none of these: nothing in this codebase keys a map or set by a
-// cycle value, only by an id — add one if that changes rather than ahead of
-// it.
+// cycle value, only by an id — add one if that changes rather than ahead of it.
 template <typename Tag, typename T>
 struct std::hash<timeball::Id<Tag, T>> {
   std::size_t operator()(const timeball::Id<Tag, T>& id) const noexcept {

@@ -40,8 +40,8 @@ const Record kHops[] = {
 }  // namespace
 
 TEST(RecordQuery, FoldSumsWorkingTimeAcrossHops) {
-  // 4 + 100 + 4. The literal is the sum of the comments above, not a call
-  // back into Fold.
+  // 4 + 100 + 4. The literal is the sum of the comments above, not a call back
+  // into Fold.
   const Cycle working = Fold(kHops, Cycle{0}, [](Cycle acc, const Record& r) {
     return acc + (r.finish - r.start);
   });
@@ -69,9 +69,9 @@ TEST(RecordQuery, GroupSumsWaitingAndWorkingPerResource) {
 }
 
 TEST(RecordQuery, StreamingFoldAndGroupKeepTheAnswerNotTheHops) {
-  // The same three hops, delivered one at a time the way a long run does.
-  // Two L1 hops share one bucket: the sink's state is the answer, not the
-  // hops that produced it.
+  // The same three hops, delivered one at a time the way a long run does. Two
+  // L1 hops share one bucket: the sink's state is the answer, not the hops that
+  // produced it.
   auto working = Fold(Cycle{0}, [](Cycle acc, const Record& r) {
     return acc + (r.finish - r.start);
   });

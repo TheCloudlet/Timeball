@@ -18,8 +18,8 @@ class AddressMap : public AccessNode {
     uint64_t end = 0;  // exclusive
     AccessNode* node = nullptr;
 
-    // The half-open rule lives here once, rather than being spelled out at
-    // each place that needs it.
+    // The half-open rule lives here once, rather than being spelled out at each
+    // place that needs it.
     [[nodiscard]] bool Contains(uint64_t addr) const {
       return addr >= base && addr < end;
     }
