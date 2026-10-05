@@ -48,19 +48,22 @@ TEST(Machine, DramLatencyIsARuntimeNumberNotBakedIntoTheTemplate) {
   EXPECT_EQ(slow.GetCorePort().Now(), 502u);  // 2 (hit latency) + 500
 }
 
-TEST(Machine, AttachWiresAnMmioDeviceThroughToItsCorePort) {
-  TinyMachine machine({.dram_latency = 100, .core_port = {.mmio_cycles = 1}});
-  CorePort& core_port = machine.GetCorePort();
-  CommandDevice mac("mac", /*params=*/1, /*start=*/0x08, /*status=*/0x10,
+TEST(Machine, AHostSuppliedMapRoutesDeviceAccessesFromItsCorePort) {
+  Memory<"DRAM"> dram(100);
+  CommandDevice mac("mac", 0x4000'0000, 1, /*params=*/1,
+                    /*start=*/0x08, /*status=*/0x10,
                     [](const std::vector<uint64_t>& p) { return p[0]; });
-  machine.Attach(0x4000'0000, 0x100, mac);
+  AddressMap map;
+  map.Map(0, 0x4000'0000, &dram);
+  map.Map(0x4000'0000, 0x4000'0100, &mac);
+  TinyMachine machine(map);
+  CorePort& core_port = machine.GetCorePort();
 
   core_port.OnStore(0x4000'0000, 40);  // param: 0..1
   core_port.OnStore(0x4000'0008, 1);   // start: 1..2, work 2..42
   core_port.OnLoad(0x4000'0010);       // status: waits to 42..43
   SyncChecked(core_port);
   EXPECT_EQ(core_port.Now(), 43u);
-  EXPECT_EQ(core_port.DeviceBusyUntil(mac), 42u);
 }
 
 TEST(Machine, MemoryEntryIsTheNodeADirectAccessCanIssueInto) {
@@ -86,7 +89,7 @@ TEST(Machine, AHostSuppliedTopologyRoutesThroughAnAddressMap) {
   map.Map(0x0000'0000, 0x8000'0000, &region1);
   map.Map(0x8000'0000, 0x8000'1000, &region2);
 
-  TinyMachine machine(map, {.mmio_cycles = 1});
+  TinyMachine machine(map);
   CheckingSink checker;  // kept across both Syncs: each depends on the last
   machine.GetCorePort().OnLoad(0x1000);  // region1: miss, 2 + 100
   SyncChecked(machine.GetCorePort(), checker);

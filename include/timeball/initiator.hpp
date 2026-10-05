@@ -60,9 +60,9 @@ class Initiator {
     return *completion;
   }
 
-  // Submits one access. It starts once the previous one completed. Returns its
-  // id.
-  EventId Issue(AccessNode& into, uint64_t addr, AccessType type) {
+  // Submits an access after the previous one completes.
+  EventId Issue(AccessNode& into, uint64_t addr, AccessType type,
+                uint64_t value = 0) {
     When when{.ready_cycle = std::max(ready_at_, engine_->Horizon()),
               .priority = priority_};
     if (last_ != 0) {
@@ -73,7 +73,7 @@ class Initiator {
       }
     }
     last_ = engine_->SubmitAccess(
-        into, {.addr = addr, .type = type, .initiator_id = id_},
+        into, {.addr = addr, .type = type, .initiator_id = id_, .value = value},
         std::move(when));
     return last_;
   }

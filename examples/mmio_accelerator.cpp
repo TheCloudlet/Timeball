@@ -76,23 +76,24 @@ class FakeIss {
 };
 
 int main() {
-  // The machine: a 64-set, 4-way, 64-byte-line L1 in front of DRAM.
-  Machine<"L1", 64, 4, 64, LRUPolicy, 2> machine(
-      {.dram_latency = kDramCycles, .core_port = {.cpi = 1, .mmio_cycles = 2}});
-  CorePort& core_port = machine.GetCorePort();
-
   // Vector op over n elements: n / lanes cycles. Multiply of MxK by KxN: M*N*K
   // / (MACs per cycle).
-  CommandDevice vpu("vpu", 3, kStart, kStatus,
+  CommandDevice vpu("vpu", kVpuBase, 2, 3, kStart, kStatus,
                     [](const std::vector<uint64_t>& p) {
                       return (p[0] + kVectorLanes - 1) / kVectorLanes;
                     });
-  CommandDevice mac("mac", 3, kStart, kStatus,
+  CommandDevice mac("mac", kMacBase, 2, 3, kStart, kStatus,
                     [](const std::vector<uint64_t>& p) {
                       return p[0] * p[1] * p[2] / kMacsPerCycle;
                     });
-  machine.Attach(kVpuBase, 0x100, vpu);
-  machine.Attach(kMacBase, 0x100, mac);
+  Memory<"DRAM"> dram(kDramCycles);
+  Cache<"L1", 64, 4, 64, LRUPolicy, 2> l1(&dram);
+  AddressMap map;
+  map.Map(0, kVpuBase, &l1);
+  map.Map(kVpuBase, kVpuBase + 0x100, &vpu);
+  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  Machine<"L1", 64, 4, 64, LRUPolicy, 2> machine(map);
+  CorePort& core_port = machine.GetCorePort();
   FakeIss iss(core_port);
   auto summary =
       Group([](const Record& r) { return std::string(r.resource); }, Totals{},

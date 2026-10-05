@@ -159,6 +159,7 @@ struct OperationJob {
 struct AccessJob {
   std::vector<Hop> path;
   Route route;
+  bool deferred = false;    // A waiting hop already called Serve.
   uint32_t base_depth = 0;  // a node's own traffic sits below its sender
   ResourceId resource = 0;  // current hop's resource, registered by the engine
 };
@@ -234,6 +235,11 @@ struct Resource {
   // Erasing it from all queues on acquisition prevents partial ownership.
   std::set<StartEvent, EarlierArrival> waiting;
   bool wake_pending = false;
+};
+
+struct TargetWork {
+  ResourceId resource = 0;
+  EventId last = 0;
 };
 
 // Initial alternative of Job::kind, so a reused slot can keep its Hop vector.
@@ -321,6 +327,7 @@ class EventEngine final {
   // A deque, so a resource's name stays put as nodes are registered mid-run.
   std::deque<Resource> resources_;
   std::unordered_map<const AccessNode*, ResourceId> node_resources_;
+  std::unordered_map<const AccessNode*, detail::TargetWork> target_work_;
 
   // Live jobs only: a slot is reused once its job completes. A deque, so a job
   // stays put while a node completing it sends traffic of its own.

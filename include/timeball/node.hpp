@@ -27,6 +27,7 @@ struct Request {
   uint64_t addr = 0;
   AccessType type = AccessType::kLoad;
   InitiatorId initiator_id;  // Identifies who issued the access.
+  uint64_t value = 0;        // Store value, if the target needs it.
 };
 
 class AccessNode;
@@ -36,6 +37,8 @@ struct Route {
   Cycle cost;                  // Cycle duration of this hop.
   AccessNode* next = nullptr;  // Null means this hop served the access.
   Request forward{};           // Sent to next. A cache miss sends a load.
+  Cycle work = 0;  // Background work launched when this hop finishes.
+  bool wait_for_work = false;  // This hop waits for this target's last work.
 };
 
 // A dirty line evicted downward. No requester waits on it.

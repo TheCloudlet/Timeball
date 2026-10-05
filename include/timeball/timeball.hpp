@@ -9,6 +9,7 @@
 
 #include "timeball/address_map.hpp"
 #include "timeball/cache.hpp"
+#include "timeball/command_device.hpp"
 #include "timeball/event_engine.hpp"
 #include "timeball/initiator.hpp"
 #include "timeball/memory.hpp"

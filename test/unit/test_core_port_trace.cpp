@@ -19,7 +19,7 @@ constexpr uint64_t kStatus = 0x20;
 
 CommandDevice MacArray() {
   return CommandDevice(
-      "mac", /*params=*/3, kStart, kStatus,
+      "mac", kMacBase, 1, /*params=*/3, kStart, kStatus,
       [](const std::vector<uint64_t>& p) { return p[0] * p[1] * p[2] / 64; });
 }
 
@@ -97,19 +97,26 @@ TEST(CorePortTrace, ApplyOneEventDispatchesLikeTheDirectCall) {
 TEST(CorePortTrace, ApplyASequenceMatchesApplyingEachOneInOrder) {
   Memory<"DRAM"> dram(100);
   CommandDevice mac = MacArray();
+  AddressMap map;
+  map.Map(0, kMacBase, &dram);
+  map.Map(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
-  CorePort core_port(engine, dram, {.mmio_cycles = 1});
-  core_port.Attach(kMacBase, 0x100, mac);
+  CorePort core_port(engine, map);
 
   const std::vector<CorePortEvent> events = {
       MemoryStore{kMacBase + 0x00, 8}, MemoryStore{kMacBase + 0x08, 8},
       MemoryStore{kMacBase + 0x10, 64}, MemoryStore{kMacBase + kStart, 1}};
   core_port.Apply(events);
-  SyncChecked(core_port);
+  RecordingSink sink;
+  SyncChecked(core_port, &sink);
   // Registers 0..4, work 4..68 (8*8*64/64 = 64 cycles) — same as the
   // hand-called version in test_core_port.cpp's
   // AnotherStartQueuesBehindWorkInProgress.
-  EXPECT_EQ(core_port.DeviceBusyUntil(mac), 68u);
+  bool work_ends_at_68 = false;
+  for (const Record& record : sink.records) {
+    work_ends_at_68 |= record.name == "work" && record.finish == 68u;
+  }
+  EXPECT_TRUE(work_ends_at_68);
 }
 
 TEST(CorePortTrace, ReplayingARecordedTraceMatchesRunningItDirectly) {
@@ -118,9 +125,11 @@ TEST(CorePortTrace, ReplayingARecordedTraceMatchesRunningItDirectly) {
   // functional simulator involved the second time.
   Memory<"DRAM"> dram(100);
   CommandDevice mac = MacArray();
+  AddressMap map;
+  map.Map(0, kMacBase, &dram);
+  map.Map(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
-  CorePort core_port(engine, dram, {.cpi = 2, .mmio_cycles = 1});
-  core_port.Attach(kMacBase, 0x100, mac);
+  CorePort core_port(engine, map, {.cpi = 2});
 
   core_port.OnStore(kMacBase + 0x00, 4);
   core_port.OnInstructions(20);
@@ -138,9 +147,11 @@ TEST(CorePortTrace, ReplayingARecordedTraceMatchesRunningItDirectly) {
 
   Memory<"DRAM2"> dram2(100);
   CommandDevice mac2 = MacArray();
+  AddressMap map2;
+  map2.Map(0, kMacBase, &dram2);
+  map2.Map(kMacBase, kMacBase + 0x100, &mac2);
   EventEngine engine2;
-  CorePort core_port2(engine2, dram2, {.cpi = 2, .mmio_cycles = 1});
-  core_port2.Attach(kMacBase, 0x100, mac2);
+  CorePort core_port2(engine2, map2, {.cpi = 2});
   core_port2.Apply(recorded);
   SyncChecked(core_port2);
 

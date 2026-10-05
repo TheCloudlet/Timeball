@@ -18,7 +18,7 @@
 
 // One cache in front of one DRAM, plus an EventEngine and a CorePort. Geometry
 // is the template arguments. DRAM latency and core port costs are
-// MachineConfig. Devices are added with Attach. For several regions, pass an
+// MachineConfig. For several regions, pass an
 // AddressMap's entry node to the second constructor. MemoryEntry() is only
 // valid for the first.
 
@@ -44,12 +44,6 @@ class Machine {
   // not the memory. memory must outlive it. The template geometry is unused.
   explicit Machine(AccessNode& memory, CorePortConfig config = {})
       : core_port_(engine_, memory, config) {}
-
-  // A device's MMIO window, [base, base + size). The device must outlive the
-  // Machine, as CorePort::Attach already requires.
-  void Attach(uint64_t base, uint64_t size, MmioDevice& device) {
-    core_port_.Attach(base, size, device);
-  }
 
   [[nodiscard]] CorePort& GetCorePort() { return core_port_; }
   [[nodiscard]] EventEngine& Engine() { return engine_; }

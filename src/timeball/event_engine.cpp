@@ -379,7 +379,35 @@ void EventEngine::Start(const Entry& e) {
   Cycle cost;
   if (auto* access = std::get_if<AccessJob>(&job.kind)) {
     Hop& hop = access->path.back();
-    access->route = hop.node->Serve(hop.request);
+    if (!access->deferred) {
+      access->route = hop.node->Serve(hop.request);
+    }
+    if (access->route.wait_for_work && !access->deferred) {
+      const auto target = target_work_.find(hop.node);
+      if (target != target_work_.end()) {
+        const EventId last = target->second.last;
+        const auto completion = live_.find(last);
+        if (completion != live_.end() &&
+            (!completion->second.done || completion->second.cycle > e.time)) {
+          Resource& resource = resources_[held.front().value()];
+          resource.waiting.erase(start);
+          if (!resource.waiting.empty()) {
+            ScheduleWake(held.front(), e.time);
+          }
+          access->deferred = true;
+          job.after.push_back(last);
+          // The hop reaches the register resource only after its dependency.
+          if (completion->second.done) {
+            Arrive(start.job, completion->second.cycle);
+          } else {
+            job.unmet = 1;
+            waiting_[last].push_back(start.job);
+          }
+          return;
+        }
+      }
+    }
+    access->deferred = false;
     cost = access->route.cost;
   } else {
     cost = Unwrap<OperationJob>(job.kind).duration;
@@ -439,6 +467,19 @@ void EventEngine::Finish(const Entry& e, RunResult& run, RecordSink* sink) {
   Job& job = jobs_[finish.job];
   Emit(job, e.time, sink);
   AccessJob* access = std::get_if<AccessJob>(&job.kind);
+  if (access != nullptr && access->route.work > 0) {
+    AccessNode* node = access->path.back().node;
+    auto [target, inserted] = target_work_.try_emplace(node);
+    if (inserted) {
+      target->second.resource =
+          AddResource({std::string(node->NodeName()) + ".work", 1});
+    }
+    target->second.last = Submit({"work",
+                                  target->second.resource,
+                                  job.initiator,
+                                  access->route.work,
+                                  {.ready_cycle = e.time}});
+  }
   if (access != nullptr && access->route.next != nullptr) {
     // Forwarded: the next node receives it as it leaves this one.
     access->path.push_back({access->route.next, access->route.forward});

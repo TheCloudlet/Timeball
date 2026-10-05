@@ -49,52 +49,26 @@ Timeball what work happens: memory accesses, and any other operation with a cost
 it already knows. Timeball puts all of it on one timeline and answers when each
 piece completes.
 
-If the memory graph looks like this:
+If the address graph looks like this:
 
 ```
-+------------------------------------------------------------------------------+
-|                         [0x00000000, 0x80000000)                             |
-|  +----------------+          +---------------------------+                   |
-|  | Core           |          | L1                        |                   |
-|  | in order       +--------->| 64 sets, 8 ways, 64-byte  |                   |
-|  +--+------+------+          | LRU, hit 4                |                   |
-|     |      |                 +-------------+-------------+                   |
-|     |      |                               |                                 |
-|     |      | MMIO 0x90000000               | miss                            |
-|     |      | size 0x100                    v                                 |
-|     |      |                 +---------------------------+                   |
-|     |      |                 | DRAM                      |                   |
-|     |      |                 | latency 100               |                   |
-|     |      |                 +---------------------------+                   |
-|     |      v                                                                 |
-|     |  +-------------------------------+                                     |
-|     |  | MAC                           |                                     |
-|     |  | params  0x00   0x08   0x10    |                                     |
-|     |  | START   0x18   STATUS 0x20    |                                     |
-|     |  | cost    M * N * K / 64        |                                     |
-|     |  +-------------------------------+                                     |
-|     |                                                                        |
-|     | [0x80000000, 0x80010000)                                               |
-|     v                                                                        |
-|  +---------------------------+                                               |
-|  | ScratchPad                |                                               |
-|  | SPM, latency 5            |                                               |
-|  | no tags, no misses        |                                               |
-|  +---------------------------+                                               |
-+------------------------------------------------------------------------------+
+Core / other initiator -> AddressMap
+                           | [0x00000000, 0x80000000) -> L1 -> DRAM
+                           | [0x80000000, 0x80010000) -> ScratchPad
+                           | [0x90000000, 0x90000100) -> MAC registers
+                           |                              START -> MAC work
+                           |                              STATUS waits for work
 ```
 
 An address in `[0x00000000, 0x80000000)` goes through L1, and a miss continues
 to DRAM. An address in `[0x80000000, 0x80010000)` stops at the scratchpad. The
-MAC is a memory-mapped device at `0x90000000`, size `0x100`, outside both
-regions. A write to START, at offset `0x18`, launches work costing
+MAC is a target at `0x90000000`, size `0x100`. A write to START, at offset
+`0x18`, launches work costing
 `M * N * K / 64` cycles; the value written is ignored. A read of STATUS, at
-offset `0x20`, waits until that work finishes. The core port checks device
-windows before the address map, so a register access never enters L1.
+offset `0x20`, waits until that work finishes. Every access goes through the
+address map, so a register access never enters L1.
 
-You build that graph as follows. The address map names the two memory
-regions. The MAC is not a region on that map. `Attach` registers its window
-on the core port, and a store to START launches the work.
+You build that graph as follows. The address map names all three regions.
 
 ```cpp
 #include "timeball/core_port.hpp"
@@ -106,24 +80,23 @@ Memory<"DRAM"> dram(100);
 Memory<"SPM"> spm(5);
 Cache<"L1", 64, 8, 64, LRUPolicy, 4> l1(&dram);
 
-// Memory only. An address here is a load or a store, never a device register.
-AddressMap map;
-map.Map(0x00000000, 0x80000000, &l1);
-map.Map(0x80000000, 0x80010000, &spm);
-
 constexpr uint64_t kMac = 0x90000000;
 constexpr uint64_t kStart = 0x18;
 constexpr uint64_t kStatus = 0x20;
 
 // Three parameter registers, then START and STATUS.
-CommandDevice mac("mac", 3, kStart, kStatus,
+CommandDevice mac("mac", kMac, 1, 3, kStart, kStatus,
                   [](const std::vector<uint64_t>& p) {
                     return p[0] * p[1] * p[2] / 64;
                   });
 
+AddressMap map;
+map.Map(0x00000000, 0x80000000, &l1);
+map.Map(0x80000000, 0x80010000, &spm);
+map.Map(kMac, kMac + 0x100, &mac);
+
 EventEngine engine;
 CorePort core_port(engine, map);
-core_port.Attach(kMac, 0x100, mac);
 
 core_port.OnLoad(0x1000);             // L1, and DRAM on a miss
 core_port.OnStore(kMac + 0x00, 64);   // M
@@ -132,7 +105,7 @@ core_port.OnStore(kMac + 0x10, 64);   // K
 core_port.OnStore(kMac + kStart, 0);  // any value; launches M*N*K/64 cycles
 core_port.OnLoad(kMac + kStatus);     // waits for that work
 core_port.Sync();
-Cycle done = core_port.Now();
+Cycle done = core_port.Now();       // 4205
 ```
 
 Adding a memory region changes no call site. Adding a node type changes nothing
@@ -290,16 +263,13 @@ ctest --test-dir build
 A functional simulator attaches at its core's load/store path, through a
 `CorePort`. It reports what it already knows — the instructions it retires and the
 loads and stores it performs — and nothing else about the host changes.
-Accelerators the core programs through memory-mapped registers are attached
-to the core port: a register write can launch work costed from what was written, and
-a status read waits for that work, which is where the real core would have
-spun.
+Accelerators the core programs through memory-mapped registers are targets in
+the same address map as memory. A register write can launch work costed from
+what was written, and a status read waits for that work.
 
-`timeball/machine.hpp`'s `Machine` template is that wiring, written once: a
-host supplies the cache's compile-time geometry as template
-arguments and its own runtime numbers — DRAM latency, the core port's cost table —
-as one `MachineConfig`, and gets a `Memory` + `Cache` + `EventEngine` +
-`CorePort`, already connected.
+`timeball/machine.hpp`'s `Machine` template owns an engine and core port. Its
+default constructor also wires a cache and DRAM. For several regions, supply
+an address map as its entry node:
 
 ```cpp
 #include "timeball/machine.hpp"
@@ -308,16 +278,22 @@ as one `MachineConfig`, and gets a `Memory` + `Cache` + `EventEngine` +
 using MyMachine = timeball::Machine<"L1", 64, 8, 64, timeball::LRUPolicy, 4>;
 
 class YourSimulator {
-  MyMachine machine_{{.dram_latency = 100}};
-  timeball::CorePort& core_port_ = machine_.GetCorePort();
+  timeball::Memory<"DRAM"> dram_{100};
+  timeball::Cache<"L1", 64, 8, 64, timeball::LRUPolicy, 4> l1_{&dram_};
   // Sizes at 0x00..0x10, START at 0x18, STATUS at 0x20; M*N*K / 64 cycles.
-  timeball::CommandDevice mac_{"mac", 3, 0x18, 0x20,
+  timeball::CommandDevice mac_{"mac", 0x4000'0000, 1, 3, 0x18, 0x20,
                               [](const std::vector<uint64_t>& p) {
                                 return p[0] * p[1] * p[2] / 64;
                               }};
+  timeball::AddressMap map_;
+  MyMachine machine_{map_};
+  timeball::CorePort& core_port_ = machine_.GetCorePort();
 
  public:
-  YourSimulator() { machine_.Attach(0x4000'0000, 0x100, mac_); }
+  YourSimulator() {
+    map_.Map(0, 0x4000'0000, &l1_);
+    map_.Map(0x4000'0000, 0x4000'0100, &mac_);
+  }
 
   // Called from where your simulator already retires instructions, loads and
   // stores.
@@ -333,9 +309,8 @@ class YourSimulator {
 };
 ```
 
-A second machine — a different cache, a different DRAM latency, a different
-accelerator — is a different file with a different `Machine<...>` and
-`MachineConfig`: `timeball/machine.hpp`, `EventEngine` and `CorePort` never change.
+A second machine can use a different cache, DRAM latency, and accelerator
+without changing `EventEngine` or `CorePort`.
 One `CorePort` per engine: it promises the engine that nothing will begin before
 its own core's time, which holds only while that core is the only source of
 work. `examples/mmio_accelerator.cpp` is a complete one: a stand-in functional
@@ -476,7 +451,8 @@ timeball/
 │   ├── node.hpp            # AccessNode, Request, Route, Writeback
 │   ├── event_engine.hpp    # The one timeline: resources, operations
 │   ├── initiator.hpp       # Where accesses come from
-│   ├── core_port.hpp             # A core's load/store path, and MMIO devices
+│   ├── core_port.hpp       # A core's load/store path
+│   ├── command_device.hpp  # Register target that launches work
 │   ├── core_port_trace.hpp       # CorePortEvent: a core port's calls, recorded and replayed
 │   ├── machine.hpp         # One cache, one memory, one core port
 │   ├── record_query.hpp    # filter, group, and fold over records

@@ -14,6 +14,7 @@ include_directories(include third_party)
 # embedding Timeball does not pay for it in every translation unit.
 add_library(timeball_engine
   src/timeball/address_map.cpp
+  src/timeball/command_device.cpp
   src/timeball/core_port.cpp
   src/timeball/core_port_trace.cpp
   src/timeball/checking_sink.cpp

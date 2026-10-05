@@ -63,8 +63,8 @@ class RecordingIss {
   std::vector<CorePortEvent> events_;
 };
 
-CommandDevice MacArray(uint64_t macs_per_cycle) {
-  return CommandDevice("mac", 3, kStart, kStatus,
+CommandDevice MacArray(uint64_t macs_per_cycle, Cycle access_cycles) {
+  return CommandDevice("mac", kMacBase, access_cycles, 3, kStart, kStatus,
                        [macs_per_cycle](const std::vector<uint64_t>& p) {
                          return p[0] * p[1] * p[2] / macs_per_cycle;
                        });
@@ -74,7 +74,7 @@ CommandDevice MacArray(uint64_t macs_per_cycle) {
 struct Hardware {
   const char* label;
   uint64_t macs_per_cycle;
-  Cycle mmio_cycles;
+  Cycle register_cycles;
 };
 
 // Replays events against hw on a fresh engine and memory, and returns how long
@@ -82,10 +82,12 @@ struct Hardware {
 // — only the recorded calls.
 Cycle Replay(const std::vector<CorePortEvent>& events, const Hardware& hw) {
   Memory<"DRAM"> dram(100);
-  CommandDevice mac = MacArray(hw.macs_per_cycle);
+  CommandDevice mac = MacArray(hw.macs_per_cycle, hw.register_cycles);
+  AddressMap map;
+  map.Map(0, kMacBase, &dram);
+  map.Map(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
-  CorePort core_port(engine, dram, {.cpi = 1, .mmio_cycles = hw.mmio_cycles});
-  core_port.Attach(kMacBase, 0x100, mac);
+  CorePort core_port(engine, map);
   core_port.Apply(events);
   core_port.Sync();
   return core_port.Now();
@@ -96,10 +98,12 @@ Cycle Replay(const std::vector<CorePortEvent>& events, const Hardware& hw) {
 int main() {
   // ---- Record the (fake) functional simulator's calls, once -------------
   Memory<"DRAM"> dram(100);
-  CommandDevice mac = MacArray(/*macs_per_cycle=*/64);
+  CommandDevice mac = MacArray(/*macs_per_cycle=*/64, /*access_cycles=*/2);
+  AddressMap map;
+  map.Map(0, kMacBase, &dram);
+  map.Map(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
-  CorePort core_port(engine, dram, {.cpi = 1, .mmio_cycles = 2});
-  core_port.Attach(kMacBase, 0x100, mac);
+  CorePort core_port(engine, map);
   RecordingIss iss(core_port);
 
   iss.Compute(1000);
@@ -126,12 +130,12 @@ int main() {
     replayed = std::move(*parsed);
   }
 
-  constexpr Hardware kFaster{"faster (mac 128/cyc, mmio 1cyc)", 128, 1};
-  constexpr Hardware kSlower{"slower (mac 32/cyc, mmio 4cyc)", 32, 4};
+  constexpr Hardware kFaster{"faster (mac 128/cyc, reg 1cyc)", 128, 1};
+  constexpr Hardware kSlower{"slower (mac 32/cyc, reg 4cyc)", 32, 4};
   const Cycle faster_total = Replay(replayed, kFaster);
   const Cycle slower_total = Replay(replayed, kSlower);
 
-  std::printf("direct  (mac 64/cyc, mmio 2cyc):     %" PRIu64 " cycles\n",
+  std::printf("direct  (mac 64/cyc, reg 2cyc):      %" PRIu64 " cycles\n",
               direct_total.value());
   std::printf("replay, %-32s %" PRIu64 " cycles\n", kFaster.label,
               faster_total.value());
