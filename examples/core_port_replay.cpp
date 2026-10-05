@@ -64,7 +64,8 @@ class RecordingIss {
 };
 
 CommandDevice MacArray(uint64_t macs_per_cycle, Cycle access_cycles) {
-  return CommandDevice("mac", kMacBase, access_cycles, 3, kStart, kStatus,
+  return CommandDevice("mac", kMacBase, InitiatorId{1}, access_cycles, 3,
+                       kStart, kStatus,
                        [macs_per_cycle](const std::vector<uint64_t>& p) {
                          return p[0] * p[1] * p[2] / macs_per_cycle;
                        });

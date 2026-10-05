@@ -19,10 +19,11 @@ class CommandDevice final : public AccessNode {
  public:
   using Cost = std::function<Cycle(const std::vector<uint64_t>& params)>;
 
-  // name must outlive this device. base is the start of its mapped region.
+  // name must outlive this device. base is the mapped region's start; origin
+  // identifies this device's work, independent of the core programming it.
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-  CommandDevice(std::string_view name, uint64_t base, Cycle access_cycles,
-                std::size_t params, uint64_t start_offset,
+  CommandDevice(std::string_view name, uint64_t base, InitiatorId origin,
+                Cycle access_cycles, std::size_t params, uint64_t start_offset,
                 uint64_t status_offset, Cost cost);
 
   [[nodiscard]] std::string_view NodeName() const override { return name_; }
@@ -31,6 +32,7 @@ class CommandDevice final : public AccessNode {
  private:
   std::string_view name_;
   uint64_t base_;
+  InitiatorId origin_;
   Cycle access_cycles_;
   std::vector<uint64_t> params_;
   uint64_t start_;

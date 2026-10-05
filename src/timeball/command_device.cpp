@@ -8,11 +8,12 @@
 namespace timeball {
 
 CommandDevice::CommandDevice(std::string_view name, uint64_t base,
-                             Cycle access_cycles, std::size_t params,
-                             uint64_t start_offset, uint64_t status_offset,
-                             Cost cost)
+                             InitiatorId origin, Cycle access_cycles,
+                             std::size_t params, uint64_t start_offset,
+                             uint64_t status_offset, Cost cost)
     : name_(name),
       base_(base),
+      origin_(origin),
       access_cycles_(access_cycles),
       params_(params, 0),
       start_(start_offset),
@@ -24,7 +25,13 @@ Route CommandDevice::Serve(const Request& r) {
   const uint64_t offset = r.addr - base_;
   if (r.type == AccessType::kStore) {
     if (offset == start_) {
-      return {.cost = access_cycles_, .work = cost_(params_)};
+      const Cycle cycles = cost_(params_);
+      if (cycles > 0) {
+        return {
+            .cost = access_cycles_,
+            .work = WorkDescription{.origin = origin_, .fixed_cycles = cycles}};
+      }
+      return {.cost = access_cycles_};
     }
     if (offset % 8 == 0 && offset / 8 < params_.size()) {
       params_[offset / 8] = r.value;

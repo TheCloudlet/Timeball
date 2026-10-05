@@ -19,7 +19,7 @@ constexpr uint64_t kStatus = 0x20;
 
 CommandDevice MacArray() {
   return CommandDevice(
-      "mac", kMacBase, 1, /*params=*/3, kStart, kStatus,
+      "mac", kMacBase, InitiatorId{1}, 1, /*params=*/3, kStart, kStatus,
       [](const std::vector<uint64_t>& p) { return p[0] * p[1] * p[2] / 64; });
 }
 

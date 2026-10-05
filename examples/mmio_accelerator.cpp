@@ -78,11 +78,11 @@ class FakeIss {
 int main() {
   // Vector op over n elements: n / lanes cycles. Multiply of MxK by KxN: M*N*K
   // / (MACs per cycle).
-  CommandDevice vpu("vpu", kVpuBase, 2, 3, kStart, kStatus,
+  CommandDevice vpu("vpu", kVpuBase, InitiatorId{1}, 2, 3, kStart, kStatus,
                     [](const std::vector<uint64_t>& p) {
                       return (p[0] + kVectorLanes - 1) / kVectorLanes;
                     });
-  CommandDevice mac("mac", kMacBase, 2, 3, kStart, kStatus,
+  CommandDevice mac("mac", kMacBase, InitiatorId{2}, 2, 3, kStart, kStatus,
                     [](const std::vector<uint64_t>& p) {
                       return p[0] * p[1] * p[2] / kMacsPerCycle;
                     });

@@ -4,6 +4,7 @@
 #define TIMEBALL_NODE_HPP
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -22,22 +23,42 @@ enum class AccessType : std::uint8_t {
   kFence,  // Stops at the first cache or memory. An I-cache drops its lines.
 };
 
-// What the sender knows. Timing (start, depth, waiters) is the engine's.
+// One access. The initiator and target are roles of each hop; initiator_id is
+// the origin this chain serves, kept when a node forwards it. Delegated work
+// starts a new chain with the device's own origin.
 struct Request {
   uint64_t addr = 0;
   AccessType type = AccessType::kLoad;
-  InitiatorId initiator_id;  // Identifies who issued the access.
+  InitiatorId initiator_id;  // Origin, not the sender of this hop.
   uint64_t value = 0;        // Store value, if the target needs it.
 };
 
 class AccessNode;
 
-// This is what Serve returns. The engine forwards a non-null next later.
+struct WorkAccess {
+  uint64_t addr = 0;
+  AccessType type = AccessType::kLoad;
+  uint64_t value = 0;
+};
+
+// Delegated work has a new origin. A fixed-cost job has no accesses; a job
+// with accesses issues them in order through its own entry node. Each access
+// pays issue_cycles on the work resource before entering the graph.
+struct WorkDescription {
+  InitiatorId origin;
+  Cycle fixed_cycles = 0;
+  AccessNode* entry = nullptr;
+  Cycle issue_cycles = 0;
+  std::vector<WorkAccess> accesses;
+};
+
+// This is what Serve returns. Forwarding keeps the request's origin; work
+// delegates to a new origin. The engine schedules both after this hop.
 struct Route {
   Cycle cost;                  // Cycle duration of this hop.
   AccessNode* next = nullptr;  // Null means this hop served the access.
   Request forward{};           // Sent to next. A cache miss sends a load.
-  Cycle work = 0;  // Background work launched when this hop finishes.
+  std::optional<WorkDescription> work;  // Launched when this hop finishes.
   bool wait_for_work = false;  // This hop waits for this target's last work.
 };
 

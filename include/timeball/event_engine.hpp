@@ -132,7 +132,8 @@ class BroadcastSink final : public RecordSink {
 
 struct RunResult {
   Cycle end_cycle = 0;
-  // Host-submitted work, in completion order. Writebacks are omitted.
+  // Completed operations and accesses, in completion order. Writebacks are
+  // omitted.
   std::vector<OperationResult> completed;
 };
 
@@ -309,6 +310,9 @@ class EventEngine final {
   // completing access's.
   void Enqueue(std::size_t causing_job, std::uint32_t priority,
                std::uint32_t depth, Cycle at, AccessNode& to, const Request& r);
+  void LaunchWork(AccessNode& target, WorkDescription work, Cycle at);
+  EventId Schedule(const Operation& op);
+  EventId ScheduleAccess(AccessNode& entry, const Request& r, When when);
 
   std::size_t NewJob(JobKind kind);
   EventId NewId();

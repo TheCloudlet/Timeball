@@ -85,7 +85,7 @@ constexpr uint64_t kStart = 0x18;
 constexpr uint64_t kStatus = 0x20;
 
 // Three parameter registers, then START and STATUS.
-CommandDevice mac("mac", kMac, 1, 3, kStart, kStatus,
+CommandDevice mac("mac", kMac, InitiatorId{1}, 1, 3, kStart, kStatus,
                   [](const std::vector<uint64_t>& p) {
                     return p[0] * p[1] * p[2] / 64;
                   });
@@ -222,16 +222,21 @@ complete recording. No caller-specific schema is added to Timeball.
 
 ## Node types
 
-Built-in nodes are examples, not requirements. Each plays one of three roles. A
-node that can receive a request is an `AccessNode`. An `Initiator` is a node and
-is not one: it originates accesses, it does not serve them.
+Initiator and target are roles on each access, not fixed kinds of hardware. A
+core load goes CPU -> L1 -> DRAM: L1 receives one hop and sends the next, but
+`Request::initiator_id` stays the CPU because both hops serve its load. A core
+write to DMA registers serves the CPU; the DMA's later read and write start new
+accesses with the DMA as their origin. `Initiator` is a helper for issuing
+in-order accesses; an `AccessNode` receives them.
 
-| Node         | Role        | Models                                            |
-| ------------ | ----------- | ------------------------------------------------- |
-| `Cache`      | Transformer | Tags, associativity, replacement; may forward     |
-| `Memory` | Target      | Fixed latency, no tags, no misses. DRAM and a scratchpad are two of these |
-| `AddressMap` | Transformer | Routes by address; adds no latency of its own     |
-| `Initiator`  | Initiator   | Where accesses originate; in order, one at a time |
+| Node            | Models                                                                 |
+|-----------------|------------------------------------------------------------------------|
+| `Cache`         | Tags, associativity, replacement, and forwarding on a miss             |
+| `Memory`        | Fixed latency without tags or misses, including DRAM or scratchpad     |
+| `AddressMap`    | Routing by address with no added latency                               |
+| `Initiator`     | In-order access issuance                                               |
+| `CommandDevice` | Register accesses and fixed-cost work                                  |
+| `DmaDevice`     | Register accesses and a one-unit read then write through its own entry |
 
 A new node type says what serving an access costs it and where the access goes
 next (`Serve`), and optionally what changes once the data arrives (`Complete`,
@@ -267,6 +272,12 @@ Accelerators the core programs through memory-mapped registers are targets in
 the same address map as memory. A register write can launch work costed from
 what was written, and a status read waits for that work.
 
+`DmaDevice` has source, destination, START, and STATUS registers at offsets
+`0`, `8`, `0x10`, and `0x18`. Its constructor takes a device origin and an entry
+node for its accesses. Pass shared DRAM or a map below the core's private L1;
+the core can then program the DMA through its own map while both paths contend
+for the shared memory. Register latency and per-access issue cost are separate.
+
 `timeball/machine.hpp`'s `Machine` template owns an engine and core port. Its
 default constructor also wires a cache and DRAM. For several regions, supply
 an address map as its entry node:
@@ -281,7 +292,8 @@ class YourSimulator {
   timeball::Memory<"DRAM"> dram_{100};
   timeball::Cache<"L1", 64, 8, 64, timeball::LRUPolicy, 4> l1_{&dram_};
   // Sizes at 0x00..0x10, START at 0x18, STATUS at 0x20; M*N*K / 64 cycles.
-  timeball::CommandDevice mac_{"mac", 0x4000'0000, 1, 3, 0x18, 0x20,
+  timeball::CommandDevice mac_{"mac", 0x4000'0000, timeball::InitiatorId{1},
+                              1, 3, 0x18, 0x20,
                               [](const std::vector<uint64_t>& p) {
                                 return p[0] * p[1] * p[2] / 64;
                               }};
@@ -453,6 +465,7 @@ timeball/
 │   ├── initiator.hpp       # Where accesses come from
 │   ├── core_port.hpp       # A core's load/store path
 │   ├── command_device.hpp  # Register target that launches work
+│   ├── dma_device.hpp      # One-unit DMA target and initiator
 │   ├── core_port_trace.hpp       # CorePortEvent: a core port's calls, recorded and replayed
 │   ├── machine.hpp         # One cache, one memory, one core port
 │   ├── record_query.hpp    # filter, group, and fold over records

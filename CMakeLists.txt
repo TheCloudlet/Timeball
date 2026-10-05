@@ -15,6 +15,7 @@ include_directories(include third_party)
 add_library(timeball_engine
   src/timeball/address_map.cpp
   src/timeball/command_device.cpp
+  src/timeball/dma_device.cpp
   src/timeball/core_port.cpp
   src/timeball/core_port_trace.cpp
   src/timeball/checking_sink.cpp
