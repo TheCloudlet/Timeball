@@ -135,6 +135,9 @@ int main() {
   std::printf("total: %" PRIu64 " cycles\n\n", core_port.Now().value());
   std::printf("%-6s %10s %10s\n", "unit", "waiting", "working");
   for (const auto& [name, t] : summary.value()) {
+    if (t.waiting == 0 && t.working == 0) {
+      continue;
+    }
     std::printf("%-6s %10" PRIu64 " %10" PRIu64 "\n", name.c_str(),
                 t.waiting.value(), t.working.value());
   }
