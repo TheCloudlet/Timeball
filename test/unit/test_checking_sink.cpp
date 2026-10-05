@@ -104,6 +104,16 @@ TEST(CheckingSink, CatchesADependencyThatWasNeverSubmitted) {
   EXPECT_FALSE(checker.Ok());
 }
 
+TEST(CheckingSink, CatchesDeviceWorkWithoutItsLaunchingAccess) {
+  CheckingSink checker;
+  std::vector<EventId> none;
+  Record work = Rec(2, "dma.work", 1, 1, 2, none);
+  work.work = 1;
+  work.parent = 99;
+  checker.OnRecord(work);
+  EXPECT_FALSE(checker.Ok());
+}
+
 TEST(CheckingSink, CatchesTwoRecordsExceedingTheirResourcesCapacity) {
   // Capacity 1, but two records overlap: [1,6) and [0,7).
   CheckingSink checker({{"r", 1}});

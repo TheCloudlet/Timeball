@@ -7,6 +7,7 @@
 #include "gtest/gtest.h"
 #include "timeball/address_map.hpp"
 #include "timeball/core_port.hpp"
+#include "timeball/record_query.hpp"
 #include "timeball/timeball.hpp"
 
 using namespace timeball;
@@ -330,7 +331,50 @@ TEST(DmaDevice, CopyRunsAcrossAnEngineWindow) {
   EXPECT_EQ(core.BusyUntil(), 28u);
 }
 
-TEST(CommandDevice, LaunchedWorkUsesTheDevicesOrigin) {
+TEST(DmaDevice, RecordsGroupByWorkAndNameTheirLaunchingAccess) {
+  Memory<"DRAM"> dram(2);
+  constexpr uint64_t kDmaBase = 0x5000'0000;
+  DmaDevice dma("dma", InitiatorId{7}, dram, 1, 1);
+  AddressMap map;
+  map.Map(0, kDmaBase, &dram);
+  map.MapDevice(kDmaBase, kDmaBase + 0x100, &dma);
+  EventEngine engine;
+  Initiator first(engine, 0);
+  Initiator second(engine, 1, /*ready_at=*/2);
+  first.Issue(map, kDmaBase, AccessType::kStore, 0x1000);
+  first.Issue(map, kDmaBase + 8, AccessType::kStore, 0x2000);
+  const EventId first_start =
+      first.Issue(map, kDmaBase + 0x10, AccessType::kStore, 1);
+  const EventId second_start =
+      second.Issue(map, kDmaBase + 0x10, AccessType::kStore, 1);
+
+  auto works =
+      Group([](const Record& record) { return record.work; },
+            std::pair<EventId, std::size_t>{},
+            [](std::pair<EventId, std::size_t> details, const Record& record) {
+              if (details.second == 0) {
+                details.first = record.parent;
+              }
+              EXPECT_EQ(details.first, record.parent);
+              ++details.second;
+              return details;
+            });
+  auto work_only =
+      Filter([](const Record& record) { return record.work != 0; }, works);
+  RunChecked(engine, &work_only);
+
+  ASSERT_EQ(works.value().size(), 2u);
+  std::vector<EventId> parents;
+  for (const auto& [work, details] : works.value()) {
+    EXPECT_NE(work, 0);
+    EXPECT_TRUE(details.first == first_start || details.first == second_start);
+    EXPECT_EQ(details.second, 5u);  // issue, read, issue, write, completion
+    parents.push_back(details.first);
+  }
+  EXPECT_NE(parents[0], parents[1]);
+}
+
+TEST(CommandDevice, FixedWorkNamesItsOriginAndLaunchingAccess) {
   Memory<"DRAM"> dram(10);
   constexpr InitiatorId kMacOrigin = 9;
   CommandDevice mac("mac", kMacOrigin, 1, 1, 0x08, 0x10,
@@ -345,14 +389,22 @@ TEST(CommandDevice, LaunchedWorkUsesTheDevicesOrigin) {
   RecordingSink trace;
   SyncChecked(core, &trace);
 
-  bool saw_device_work = false;
+  EventId start = 0;
+  const Record* work = nullptr;
   for (const Record& record : trace.records) {
+    if (record.resource == "mac" && record.addr == 0x08 &&
+        record.name == "store") {
+      start = record.op;
+    }
     if (record.name == "work") {
-      EXPECT_EQ(record.initiator, kMacOrigin);
-      saw_device_work = true;
+      work = &record;
     }
   }
-  EXPECT_TRUE(saw_device_work);
+  ASSERT_NE(start, 0);
+  ASSERT_NE(work, nullptr);
+  EXPECT_EQ(work->initiator, kMacOrigin);
+  EXPECT_NE(work->work, 0);
+  EXPECT_EQ(work->parent, start);
   EXPECT_EQ(core.Now(), 2u);
 }
 

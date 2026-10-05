@@ -14,10 +14,10 @@
 
 namespace timeball {
 
-// An opaque identifier: EventId, ResourceId or InitiatorId. Equality and a
-// total order (so it can be a map key, sorted, or the tiebreak field of a pair)
-// are all it supports — no arithmetic, so two ids of the same kind cannot be
-// added as if they were quantities.
+// An opaque identifier: EventId, WorkId, ResourceId or InitiatorId. Equality
+// and a total order (so it can be a map key, sorted, or the tiebreak field of a
+// pair) are all it supports — no arithmetic, so two ids of the same kind cannot
+// be added as if they were quantities.
 template <typename Tag, typename T>
 class Id {
  public:
@@ -37,11 +37,13 @@ class Id {
 
 namespace ids_detail {
 struct EventTag {};
+struct WorkTag {};
 struct ResourceTag {};
 struct InitiatorTag {};
 }  // namespace ids_detail
 
 using EventId = Id<ids_detail::EventTag, std::uint64_t>;
+using WorkId = Id<ids_detail::WorkTag, std::uint64_t>;
 using ResourceId = Id<ids_detail::ResourceTag, std::uint32_t>;
 using InitiatorId = Id<ids_detail::InitiatorTag, std::uint32_t>;
 

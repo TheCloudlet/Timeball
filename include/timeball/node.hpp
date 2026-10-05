@@ -58,6 +58,8 @@ struct Route {
   Cycle cost;                  // Cycle duration of this hop.
   AccessNode* next = nullptr;  // Null means this hop served the access.
   Request forward{};           // Sent to next. A cache miss sends a load.
+  // Only demand accesses can launch work: a writeback has no event id to name
+  // as the launching access in the work records.
   std::optional<WorkDescription> work;  // Launched when this hop finishes.
   // Serve decides a waiting read's result before the wait begins.
   bool wait_for_work = false;  // This hop waits for this target's last work.

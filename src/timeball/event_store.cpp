@@ -112,7 +112,9 @@ void EventStore::Initialize() {
                    "  forwarded INTEGER NOT NULL,"
                    "  arrival INTEGER NOT NULL,"
                    "  start INTEGER NOT NULL,"
-                   "  finish INTEGER NOT NULL);"
+                   "  finish INTEGER NOT NULL,"
+                   "  work INTEGER NOT NULL,"
+                   "  parent INTEGER NOT NULL);"
                    "CREATE TABLE deps("
                    "  op INTEGER NOT NULL,"
                    "  depends_on INTEGER NOT NULL);"
@@ -124,7 +126,7 @@ void EventStore::Initialize() {
     return;
   }
 
-  if (!impl_->Prepare("INSERT INTO ops VALUES(?,?,?,?,?,?,?,?,?,?)",
+  if (!impl_->Prepare("INSERT INTO ops VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                       &impl_->insert_op, "preparing ops insert") ||
       !impl_->Prepare("INSERT INTO deps VALUES(?,?)", &impl_->insert_dep,
                       "preparing deps insert") ||
@@ -231,6 +233,13 @@ void EventStore::OnRecord(const Record& record) {
       !impl_->Check(
           sqlite3_bind_int64(s, 10,
                              static_cast<sqlite3_int64>(record.finish.value())),
+          "binding ops row") ||
+      !impl_->Check(sqlite3_bind_int64(
+                        s, 11, static_cast<sqlite3_int64>(record.work.value())),
+                    "binding ops row") ||
+      !impl_->Check(
+          sqlite3_bind_int64(s, 12,
+                             static_cast<sqlite3_int64>(record.parent.value())),
           "binding ops row") ||
       !impl_->Step(s, "writing ops row")) {
     return;

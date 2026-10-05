@@ -20,8 +20,8 @@ struct sqlite3;
 // implementation is compiled at all.
 //
 // Three tables, written as records arrive and kept nowhere in memory:
-//   ops   one row per resource occupied — a static operation, or one hop of
-//         a memory access — with arrival, start and finish
+//   ops   one row per resource occupied, with timing and optional device work
+//         and launching-access ids (zero for ordinary work)
 //   deps  one row per dependency an operation or access waited on
 //   tasks named spans of cycles, joined against ops by cycle range, so a
 //         kernel's name is stored once per span rather than on every row

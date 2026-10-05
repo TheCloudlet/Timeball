@@ -64,6 +64,10 @@ struct Operation {
 struct Record {
   // Submitted work this belongs to. 0 is a writeback; nobody waits on it.
   EventId op = 0;
+  // Device work has an id and the id of the access that launched it.
+  // Ordinary records have both zero.
+  WorkId work = 0;
+  EventId parent = 0;
   std::string_view name;  // the operation's name; "load" or "store"
   std::string_view resource;
   InitiatorId initiator = 0;
@@ -169,6 +173,8 @@ struct AccessJob {
 // is a node's own traffic. Kind is one alternative.
 struct Job {
   EventId id = 0;
+  WorkId work_id = 0;
+  EventId parent = 0;
   std::string_view name;
   InitiatorId initiator = 0;
   std::uint32_t priority = 0;
@@ -310,9 +316,11 @@ class EventEngine final {
   // completing access's.
   void Enqueue(std::size_t causing_job, std::uint32_t priority,
                std::uint32_t depth, Cycle at, AccessNode& to, const Request& r);
-  void LaunchWork(AccessNode& target, WorkDescription work, Cycle at);
-  EventId Schedule(const Operation& op);
-  EventId ScheduleAccess(AccessNode& entry, const Request& r, When when);
+  void LaunchWork(AccessNode& target, WorkDescription work, Cycle at,
+                  EventId parent);
+  EventId Schedule(const Operation& op, WorkId work_id = 0, EventId parent = 0);
+  EventId ScheduleAccess(AccessNode& entry, const Request& r, When when,
+                         WorkId work_id = 0, EventId parent = 0);
 
   std::size_t NewJob(JobKind kind);
   EventId NewId();
@@ -351,6 +359,7 @@ class EventEngine final {
       completed_;
   std::uint64_t next_id_ = 1;  // the next id to hand out; incremented, so
                                // kept as the raw integer EventId wraps
+  std::uint64_t next_work_id_ = 1;
   Cycle horizon_ = 0;
 
   std::uint64_t next_sequence_ = 0;  // host submissions only

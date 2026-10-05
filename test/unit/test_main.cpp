@@ -934,6 +934,74 @@ TEST(EventStore, LeavesOneRowPerResourceOccupiedAndATaskTable) {
   EXPECT_EQ(steady_rows, 3);
 }
 
+TEST(EventStore, PersistsDeviceWorkAndLaunchingAccess) {
+  const std::string db_path = FreshDb("timeball_device_work.sqlite");
+  EventStore store(db_path);
+  ASSERT_TRUE(store.IsOpen()) << store.Error();
+  Memory<"DRAM"> dram(2);
+  DmaDevice dma("dma", InitiatorId{7}, dram, 1, 1);
+  constexpr uint64_t kDmaBase = 0x5000'0000;
+  AddressMap map;
+  map.Map(0, kDmaBase, &dram);
+  map.MapDevice(kDmaBase, kDmaBase + 0x100, &dma);
+  EventEngine engine;
+  Initiator core(engine, 0);
+  core.Issue(map, kDmaBase, AccessType::kStore, 0x1000);
+  core.Issue(map, kDmaBase + 8, AccessType::kStore, 0x2000);
+  core.Issue(map, kDmaBase + 0x10, AccessType::kStore, 1);
+  RunChecked(engine, &store);
+  ASSERT_TRUE(store.Close()) << store.Error();
+
+  EXPECT_EQ(SqliteScalar(db_path, "SELECT COUNT(*) FROM ops WHERE work != 0"),
+            5);
+  EXPECT_EQ(
+      SqliteScalar(db_path,
+                   "SELECT COUNT(DISTINCT work) FROM ops WHERE work != 0"),
+      1);
+  EXPECT_EQ(SqliteScalar(db_path,
+                         "SELECT COUNT(*) FROM ops WHERE (work = 0) != "
+                         "(parent = 0)"),
+            0);
+  EXPECT_EQ(SqliteScalar(db_path,
+                         "SELECT COUNT(*) FROM ops child JOIN ops launch "
+                         "ON child.parent = launch.op WHERE child.work != 0 "
+                         "AND launch.resource = 'dma' AND launch.addr = 16"),
+            5);
+}
+
+TEST(EventStore, DeviceWorkSpanEndsBeforeItsWriteback) {
+  const std::string db_path = FreshDb("timeball_device_writeback.sqlite");
+  EventStore store(db_path);
+  ASSERT_TRUE(store.IsOpen()) << store.Error();
+  Memory<"DRAM"> dram(2);
+  Cache<"L1", 2, 1, 64, LRUPolicy, 1> cache(&dram);
+  DmaDevice dma("dma", InitiatorId{7}, cache, 1, 1);
+  constexpr uint64_t kDmaBase = 0x5000'0000;
+  AddressMap map;
+  map.Map(0, kDmaBase, &cache);
+  map.MapDevice(kDmaBase, kDmaBase + 0x100, &dma);
+  EventEngine engine;
+  Initiator core(engine, 0);
+  core.Issue(map, 0, AccessType::kStore);  // dirty set 0, complete at 3
+  core.Issue(map, kDmaBase, AccessType::kStore, 0x40);      // source: set 1
+  core.Issue(map, kDmaBase + 8, AccessType::kStore, 0x80);  // dest: set 0
+  core.Issue(map, kDmaBase + 0x10, AccessType::kStore, 1);
+  RunChecked(engine, &store);
+  ASSERT_TRUE(store.Close()) << store.Error();
+
+  EXPECT_EQ(SqliteScalar(db_path,
+                         "SELECT COUNT(*) FROM ops WHERE work != 0 AND op = 0"),
+            1);
+  EXPECT_EQ(SqliteScalar(db_path,
+                         "SELECT MAX(finish) - MIN(arrival) FROM ops "
+                         "WHERE work != 0"),
+            10);
+  EXPECT_EQ(SqliteScalar(db_path,
+                         "SELECT MAX(CASE WHEN name = 'work' THEN finish END) "
+                         "- MIN(arrival) FROM ops WHERE work != 0"),
+            8);
+}
+
 TEST(EventStore, AnswersWhichOperationWasSlowAndWhy) {
   // Static operations and memory accesses land in one database, with what each
   // waited on, so a query can find the slowest operation, split its time into

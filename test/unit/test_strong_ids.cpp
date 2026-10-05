@@ -2,7 +2,7 @@
 //
 // Nothing here runs: every check is a static_assert, so a violation is a build
 // failure rather than a test failure. This is the proof that Cycle, EventId,
-// ResourceId and InitiatorId cannot be substituted for one another,
+// WorkId, ResourceId and InitiatorId cannot be substituted for one another,
 // deliberately or by mistake — the property issue #27 asks for.
 
 #include <type_traits>
@@ -19,6 +19,8 @@ constexpr bool kNeitherConverts =
 
 static_assert(kNeitherConverts<Cycle, EventId>,
               "a cycle must not stand in for an event id, or the reverse");
+static_assert(kNeitherConverts<WorkId, EventId>,
+              "a device work id must not stand in for an event id");
 static_assert(kNeitherConverts<Cycle, ResourceId>,
               "a cycle must not stand in for a resource id, or the reverse");
 static_assert(kNeitherConverts<Cycle, InitiatorId>,
@@ -39,10 +41,12 @@ static_assert(
 // agent` working — and only explicitly convertible back out to it.
 static_assert(std::is_convertible_v<std::uint64_t, Cycle>);
 static_assert(std::is_convertible_v<std::uint64_t, EventId>);
+static_assert(std::is_convertible_v<std::uint64_t, WorkId>);
 static_assert(std::is_convertible_v<std::uint32_t, ResourceId>);
 static_assert(std::is_convertible_v<std::uint32_t, InitiatorId>);
 static_assert(!std::is_convertible_v<Cycle, std::uint64_t>);
 static_assert(!std::is_convertible_v<EventId, std::uint64_t>);
+static_assert(!std::is_convertible_v<WorkId, std::uint64_t>);
 static_assert(!std::is_convertible_v<ResourceId, std::uint32_t>);
 static_assert(!std::is_convertible_v<InitiatorId, std::uint32_t>);
 

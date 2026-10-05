@@ -47,6 +47,25 @@ void CheckingSink::OnRecord(const Record& record) {
     }
   }
 
+  if ((record.work == 0) != (record.parent == 0)) {
+    violations_.push_back(
+        {std::format("op {} has device work or parent without the other",
+                     record.op.value())});
+  } else if (record.parent != 0) {
+    const auto it = op_finish_.find(record.parent);
+    if (it == op_finish_.end()) {
+      if (!ever_retired_) {
+        violations_.push_back({std::format(
+            "work {} names launching access {}, which was never seen complete",
+            record.work.value(), record.parent.value())});
+      }
+    } else if (it->second > record.arrival) {
+      violations_.push_back(
+          {std::format("work {} arrived before launching access {} completed",
+                       record.work.value(), record.parent.value())});
+    }
+  }
+
   // Every arrival at this resource, past or present, must agree on order: no
   // later arrival is served ahead of an earlier one. Kept independently of the
   // capacity check below — an entry that has long since finished can still be

@@ -191,8 +191,10 @@ waiting (`start - arrival`) from working (`finish - start`).
 
 A run can stream the records into a SQLite file as they happen: `ops` holds a
 row per resource occupied, `deps` a row per dependency an operation waited on,
-and `tasks` named spans of cycles. Questions nobody anticipated are answered by
-querying rather than by rebuilding with new instrumentation:
+and `tasks` named spans of cycles. Device-work rows carry a `work` id and the
+`parent` operation id of the access that launched them; ordinary rows have
+zeros in both columns. Questions nobody anticipated are answered by querying
+rather than by rebuilding with new instrumentation:
 
 ```sql
 -- The slowest operations end to end. An access is a row per hop, so group.
@@ -202,6 +204,11 @@ FROM ops WHERE op != 0 GROUP BY op ORDER BY span DESC LIMIT 10;
 -- Where did the time go, per resource: waiting or working?
 SELECT resource, SUM(start - arrival) AS waiting, SUM(finish - start) AS working
 FROM ops GROUP BY resource ORDER BY waiting + working DESC;
+
+-- Per-device-work latency through its final work event, excluding later writebacks.
+SELECT work, parent,
+       MAX(CASE WHEN name = 'work' THEN finish END) - MIN(arrival) AS span
+FROM ops WHERE work != 0 GROUP BY work, parent ORDER BY work;
 
 -- What held up the multiply: the dependency that finished last.
 SELECT p.name, p.finish FROM deps d
@@ -463,7 +470,7 @@ destructor still closes the store but cannot report whether it succeeded.
 timeball/
 ├── include/timeball/
 │   ├── timeball.hpp         # What a host includes to embed the engine
-│   ├── ids.hpp             # Cycle, EventId, ResourceId, InitiatorId
+│   ├── ids.hpp             # Cycle, EventId, WorkId, ResourceId, InitiatorId
 │   ├── node.hpp            # AccessNode, Request, Route, Writeback
 │   ├── event_engine.hpp    # The one timeline: resources, operations
 │   ├── initiator.hpp       # Where accesses come from

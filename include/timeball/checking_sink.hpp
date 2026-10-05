@@ -10,10 +10,10 @@
 
 #include "timeball/event_engine.hpp"
 
-// Checks the engine's rule against every record. Collects violations; it does
-// not assert. One map lookup per record. Resources are keyed by name, so two
-// nodes with the same name share a bucket. Keep one sink across calls that
-// depend on earlier ids.
+// Checks the engine's timing and device-work links against every record.
+// Collects violations; it does not assert.
+// Resources are keyed by name, so two nodes with the same name share a bucket.
+// Keep one sink across calls that depend on earlier ids.
 
 namespace timeball {
 
