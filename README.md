@@ -230,6 +230,60 @@ committing the combined recording; it finalizes only the store's statements. The
 caller must also check its metadata writes and final commit, and publish only a
 complete recording. No caller-specific schema is added to Timeball.
 
+### Viewing a recording in Perfetto
+
+`tools/sqlite_to_perfetto.py` turns a recording into a trace that
+[ui.perfetto.dev](https://ui.perfetto.dev) opens. It reads only `ops`, `deps`
+and `tasks`. It lives in its own [uv](https://docs.astral.sh/uv/) project, so
+the C++ build never needs Python:
+
+```bash
+cd tools
+uv run sqlite_to_perfetto.py run.sqlite -o run.pftrace
+uv run sqlite_to_perfetto.py run.sqlite --task steady --resource DRAM --flows
+```
+
+One cycle is drawn as one nanosecond, so the timestamps in the UI are cycles.
+The tracks are:
+
+- `tasks`: one slice per `tasks` row.
+- One group per resource, with:
+  - `work`: one slice per row, from `start` to `finish`;
+  - `wait`: from `arrival` to `start`, as long as no more than two rows wait
+    there at once;
+  - `queue`: otherwise, a counter of the rows waiting there.
+
+Overlapping slices are split into more lanes, named `work 2`, `wait 2`, and so
+on.
+
+Clicking a slice shows its row: `op`, `name`, `resource`, `initiator`, `addr`,
+`depth`, `forwarded`, `arrival`, `start`, `finish`, `wait_cycles`,
+`work_cycles`, `work`, `parent`.
+`row` is its rowid in `ops`. It also shows `depends_on`, each dependency with
+its name and finish cycle, and `released_by`, the dependency that finished
+last.
+
+Clicking a `queue` sample shows how many rows were waiting. It lists the
+oldest 16, each with its wait so far (`waited`) and in total (`wait_cycles`);
+`--queue-detail` changes how many.
+
+`--flows` draws an arrow per dependency, and `--wait-slices` draws every wait
+as slices instead of a counter. `--from`/`--to`, `--task` and `--resource`
+keep only what overlaps the given cycles or resources. Whether a resource
+gets a counter is decided over the waits that are drawn, so a narrow range can
+show as slices a resource that is crowded elsewhere.
+
+Measured on a recording of 1.5 M rows:
+
+- converting takes 2 min 13 s, with a peak of 44 MB, which does not grow with
+  the run;
+- the trace is 735 MB;
+- trace processor loads it in 31 s using about 3.5 GB.
+
+That is near the browser's limit, so narrow a large run with the filters, or
+serve it with `trace_processor --httpd run.pftrace` and open ui.perfetto.dev,
+which connects to it.
+
 ## Node types
 
 Initiator and target are roles on each access, not fixed kinds of hardware. A
@@ -264,6 +318,8 @@ is the same node given its own latency.
 - **SQLite3** (optional; `-DTIMEBALL_WITH_SQLITE=OFF` to build without)
 - **Network access at configure time** (only with `-DTIMEBALL_BUILD_TESTS=ON`,
   which fetches GoogleTest)
+- **uv** (optional; only for the Perfetto converter in `tools/`, whose tests
+  run with `cd tools && uv run pytest`)
 
 ### Build and test
 
@@ -490,6 +546,7 @@ timeball/
 ├── src/timeball/            # Non-template engine code (libtimeball_engine)
 ├── examples/               # A functional simulator hooked at its core port
 ├── bench/                  # Throughput and footprint
+├── tools/                  # SQLite recording to Perfetto trace (uv project)
 └── test/                   # Unit tests
 ```
 

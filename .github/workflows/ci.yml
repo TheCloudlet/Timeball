@@ -58,3 +58,19 @@ jobs:
       # NDEBUG-only tests, Debug runs the death tests.
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+  # The Perfetto converter is Python and independent of the C++ build.
+  tools:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Test
+        run: uv run --locked pytest

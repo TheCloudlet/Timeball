@@ -1,6 +1,9 @@
 .cache/*
 compile_commands.json
 build/
+.venv/
+__pycache__/
+.pytest_cache/
 .DS_Store
 
 # Local working documents.
