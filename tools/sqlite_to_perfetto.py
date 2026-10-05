@@ -228,7 +228,11 @@ class _Writer:
         # the row where the dependent arrived, when both are drawn.
         db = self.db
         db.execute("""
-            CREATE TEMP TABLE ends AS
+            CREATE TEMP TABLE ends(op INTEGER PRIMARY KEY, last_row INTEGER,
+                                   first_row INTEGER)""")
+        # Keyed by op: every dependency looks up both of its ends here.
+        db.execute("""
+            INSERT INTO temp.ends
             SELECT op, MAX(CASE WHEN last = 1 THEN row END) AS last_row,
                        MAX(CASE WHEN first = 1 THEN row END) AS first_row
             FROM (SELECT op, rowid AS row,

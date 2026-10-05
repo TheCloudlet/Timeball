@@ -4,6 +4,7 @@ the SQLite file it came from, so nothing here depends on looking at the UI."""
 
 import heapq
 import sqlite3
+import time
 from collections import defaultdict
 
 import pytest
@@ -325,6 +326,20 @@ def test_flows_need_both_ends_in_the_output(tmp_path):
         "SELECT o.name AS src, i.name AS dst FROM flow f "
         "JOIN slice o ON f.slice_out = o.id JOIN slice i ON f.slice_in = i.id")
     assert [(f["src"], f["dst"]) for f in flows] == [("copy", "send")]
+
+
+def test_flows_scale_with_a_long_dependency_chain(tmp_path):
+    # Each op waits on the one before, as a core port's work does. Looking up
+    # an op's ends without a key makes this quadratic: minutes, not seconds.
+    n = 20_000
+    ops = [(i, "step", "core", 0, 0, 0, 0, i, i, i + 1, 0, 0)
+           for i in range(1, n + 1)]
+    deps = [(i, i - 1) for i in range(2, n + 1)]
+    db = make_db(tmp_path / "chain.sqlite", ops=ops, deps=deps, tasks=[])
+    began = time.monotonic()
+    s2p.convert(db, tmp_path / "chain.pftrace", flows=True)
+    # About 1 s keyed; over 20 s without the key.
+    assert time.monotonic() - began < 5
 
 
 def test_flows_are_off_by_default(tmp_path):
