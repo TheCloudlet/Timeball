@@ -2,17 +2,15 @@
 
 #include "timeball/command_device.hpp"
 
-#include <cassert>
 #include <utility>
 
 namespace timeball {
 
-CommandDevice::CommandDevice(std::string_view name, uint64_t base,
-                             InitiatorId origin, Cycle access_cycles,
-                             std::size_t params, uint64_t start_offset,
-                             uint64_t status_offset, Cost cost)
+CommandDevice::CommandDevice(std::string_view name, InitiatorId origin,
+                             Cycle access_cycles, std::size_t params,
+                             uint64_t start_offset, uint64_t status_offset,
+                             Cost cost)
     : name_(name),
-      base_(base),
       origin_(origin),
       access_cycles_(access_cycles),
       params_(params, 0),
@@ -21,10 +19,8 @@ CommandDevice::CommandDevice(std::string_view name, uint64_t base,
       cost_(std::move(cost)) {}
 
 Route CommandDevice::Serve(const Request& r) {
-  assert(r.addr >= base_ && "Device access precedes its base address");
-  const uint64_t offset = r.addr - base_;
   if (r.type == AccessType::kStore) {
-    if (offset == start_) {
+    if (r.addr == start_) {
       const Cycle cycles = cost_(params_);
       if (cycles > 0) {
         return {
@@ -33,12 +29,12 @@ Route CommandDevice::Serve(const Request& r) {
       }
       return {.cost = access_cycles_};
     }
-    if (offset % 8 == 0 && offset / 8 < params_.size()) {
-      params_[offset / 8] = r.value;
+    if (r.addr % 8 == 0 && r.addr / 8 < params_.size()) {
+      params_[r.addr / 8] = r.value;
     }
   }
   return {.cost = access_cycles_,
-          .wait_for_work = r.type == AccessType::kLoad && offset == status_};
+          .wait_for_work = r.type == AccessType::kLoad && r.addr == status_};
 }
 
 }  // namespace timeball

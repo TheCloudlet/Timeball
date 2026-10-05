@@ -36,6 +36,11 @@ void AddressMap::Map(uint64_t base, uint64_t end, AccessNode* node) {
   regions_.push_back({.base = base, .end = end, .node = node});
 }
 
+void AddressMap::MapDevice(uint64_t base, uint64_t end, AccessNode* node) {
+  Map(base, end, node);
+  regions_.back().forward_offset = true;
+}
+
 bool AddressMap::Covers(uint64_t addr) const {
   return std::ranges::any_of(
       regions_, [addr](const Region& region) { return region.Contains(addr); });
@@ -44,9 +49,11 @@ bool AddressMap::Covers(uint64_t addr) const {
 Route AddressMap::Serve(const Request& r) {
   for (const auto& region : regions_) {
     if (region.Contains(r.addr)) {
-      // The address is passed through untouched: a node behind the map does its
-      // own set/tag split on the address the host actually used.
-      return {.cost = 0, .next = region.node, .forward = r};
+      Request forward = r;
+      if (region.forward_offset) {
+        forward.addr -= region.base;
+      }
+      return {.cost = 0, .next = region.node, .forward = forward};
     }
   }
   assert(false && "Access to an unmapped address");

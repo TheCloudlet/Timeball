@@ -2,19 +2,15 @@
 
 #include "timeball/dma_device.hpp"
 
-#include <cassert>
-
 namespace timeball {
 
 Route DmaDevice::Serve(const Request& r) {
-  assert(r.addr >= base_ && "DMA access precedes its base address");
-  const uint64_t offset = r.addr - base_;
   if (r.type == AccessType::kStore) {
-    if (offset == 0) {
+    if (r.addr == 0) {
       source_ = r.value;
-    } else if (offset == 8) {
+    } else if (r.addr == 8) {
       destination_ = r.value;
-    } else if (offset == 16) {
+    } else if (r.addr == 16) {
       return {.cost = register_cycles_,
               .work = WorkDescription{
                   .origin = origin_,
@@ -26,7 +22,7 @@ Route DmaDevice::Serve(const Request& r) {
     }
   }
   return {.cost = register_cycles_,
-          .wait_for_work = r.type == AccessType::kLoad && offset == 24};
+          .wait_for_work = r.type == AccessType::kLoad && r.addr == 24};
 }
 
 }  // namespace timeball

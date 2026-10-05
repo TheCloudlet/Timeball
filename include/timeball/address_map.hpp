@@ -17,6 +17,7 @@ class AddressMap : public AccessNode {
     uint64_t base = 0;
     uint64_t end = 0;  // exclusive
     AccessNode* node = nullptr;
+    bool forward_offset = false;
 
     // The half-open rule lives here once, rather than being spelled out at each
     // place that needs it.
@@ -34,6 +35,8 @@ class AddressMap : public AccessNode {
  public:
   // Configuration. Overlap, an empty range, or a null node asserts.
   void Map(uint64_t base, uint64_t end, AccessNode* node);
+  // Same region checks as Map, but forwards offsets to a register target.
+  void MapDevice(uint64_t base, uint64_t end, AccessNode* node);
 
   // Whether addr is mapped. Ask this in a release build, where Map's asserts
   // are compiled out, before running.
@@ -43,8 +46,8 @@ class AddressMap : public AccessNode {
     return "AddressMap";
   }
 
-  // Routing costs nothing: the access continues, untouched, to the node that
-  // models its address. An unmapped address is a configuration error too: the
+  // Routing costs nothing. Map preserves the absolute address; MapDevice
+  // forwards its offset. An unmapped address is a configuration error: the
   // caller cannot handle it meaningfully, and returning a status would put a
   // branch on every access for a condition that must never happen. A release
   // build that needs to reject one asks Covers() first.

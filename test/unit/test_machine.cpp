@@ -50,12 +50,12 @@ TEST(Machine, DramLatencyIsARuntimeNumberNotBakedIntoTheTemplate) {
 
 TEST(Machine, AHostSuppliedMapRoutesDeviceAccessesFromItsCorePort) {
   Memory<"DRAM"> dram(100);
-  CommandDevice mac("mac", 0x4000'0000, InitiatorId{1}, 1, /*params=*/1,
+  CommandDevice mac("mac", InitiatorId{1}, 1, /*params=*/1,
                     /*start=*/0x08, /*status=*/0x10,
                     [](const std::vector<uint64_t>& p) { return p[0]; });
   AddressMap map;
   map.Map(0, 0x4000'0000, &dram);
-  map.Map(0x4000'0000, 0x4000'0100, &mac);
+  map.MapDevice(0x4000'0000, 0x4000'0100, &mac);
   TinyMachine machine(map);
   CorePort& core_port = machine.GetCorePort();
 

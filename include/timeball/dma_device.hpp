@@ -18,10 +18,9 @@ class DmaDevice final : public AccessNode {
   // name, entry, and this device must outlive its in-flight work. entry is
   // where this DMA's accesses enter, often below the core's private L1.
   // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-  DmaDevice(std::string_view name, uint64_t base, InitiatorId origin,
-            AccessNode& entry, Cycle register_cycles, Cycle issue_cycles)
+  DmaDevice(std::string_view name, InitiatorId origin, AccessNode& entry,
+            Cycle register_cycles, Cycle issue_cycles)
       : name_(name),
-        base_(base),
         origin_(origin),
         entry_(&entry),
         register_cycles_(register_cycles),
@@ -32,7 +31,6 @@ class DmaDevice final : public AccessNode {
 
  private:
   std::string_view name_;
-  uint64_t base_;
   InitiatorId origin_;
   AccessNode* entry_;
   Cycle register_cycles_;

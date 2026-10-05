@@ -67,6 +67,9 @@ MAC is a target at `0x90000000`, size `0x100`. A write to START, at offset
 `M * N * K / 64` cycles; the value written is ignored. A read of STATUS, at
 offset `0x20`, waits until that work finishes. Every access goes through the
 address map, so a register access never enters L1.
+`MapDevice` forwards an offset, so device-hop records show register offsets;
+the address-map hop retains the full address. `Map` leaves addresses unchanged
+for caches and memory.
 
 You build that graph as follows. The address map names all three regions.
 
@@ -85,7 +88,7 @@ constexpr uint64_t kStart = 0x18;
 constexpr uint64_t kStatus = 0x20;
 
 // Three parameter registers, then START and STATUS.
-CommandDevice mac("mac", kMac, InitiatorId{1}, 1, 3, kStart, kStatus,
+CommandDevice mac("mac", InitiatorId{1}, 1, 3, kStart, kStatus,
                   [](const std::vector<uint64_t>& p) {
                     return p[0] * p[1] * p[2] / 64;
                   });
@@ -93,7 +96,7 @@ CommandDevice mac("mac", kMac, InitiatorId{1}, 1, 3, kStart, kStatus,
 AddressMap map;
 map.Map(0x00000000, 0x80000000, &l1);
 map.Map(0x80000000, 0x80010000, &spm);
-map.Map(kMac, kMac + 0x100, &mac);
+map.MapDevice(kMac, kMac + 0x100, &mac);
 
 EventEngine engine;
 CorePort core_port(engine, map);
@@ -276,7 +279,8 @@ what was written, and a status read waits for that work.
 `0`, `8`, `0x10`, and `0x18`. Its constructor takes a device origin and an entry
 node for its accesses. Pass shared DRAM or a map below the core's private L1;
 the core can then program the DMA through its own map while both paths contend
-for the shared memory. Register latency and per-access issue cost are separate.
+for the shared memory. Map its registers with `MapDevice`; only the address map
+knows the device's base. Register latency and per-access issue cost are separate.
 
 `timeball/machine.hpp`'s `Machine` template owns an engine and core port. Its
 default constructor also wires a cache and DRAM. For several regions, supply
@@ -292,8 +296,8 @@ class YourSimulator {
   timeball::Memory<"DRAM"> dram_{100};
   timeball::Cache<"L1", 64, 8, 64, timeball::LRUPolicy, 4> l1_{&dram_};
   // Sizes at 0x00..0x10, START at 0x18, STATUS at 0x20; M*N*K / 64 cycles.
-  timeball::CommandDevice mac_{"mac", 0x4000'0000, timeball::InitiatorId{1},
-                              1, 3, 0x18, 0x20,
+  timeball::CommandDevice mac_{"mac", timeball::InitiatorId{1}, 1, 3, 0x18,
+                              0x20,
                               [](const std::vector<uint64_t>& p) {
                                 return p[0] * p[1] * p[2] / 64;
                               }};
@@ -304,7 +308,7 @@ class YourSimulator {
  public:
   YourSimulator() {
     map_.Map(0, 0x4000'0000, &l1_);
-    map_.Map(0x4000'0000, 0x4000'0100, &mac_);
+    map_.MapDevice(0x4000'0000, 0x4000'0100, &mac_);
   }
 
   // Called from where your simulator already retires instructions, loads and

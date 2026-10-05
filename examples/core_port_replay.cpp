@@ -64,8 +64,7 @@ class RecordingIss {
 };
 
 CommandDevice MacArray(uint64_t macs_per_cycle, Cycle access_cycles) {
-  return CommandDevice("mac", kMacBase, InitiatorId{1}, access_cycles, 3,
-                       kStart, kStatus,
+  return CommandDevice("mac", InitiatorId{1}, access_cycles, 3, kStart, kStatus,
                        [macs_per_cycle](const std::vector<uint64_t>& p) {
                          return p[0] * p[1] * p[2] / macs_per_cycle;
                        });
@@ -86,7 +85,7 @@ Cycle Replay(const std::vector<CorePortEvent>& events, const Hardware& hw) {
   CommandDevice mac = MacArray(hw.macs_per_cycle, hw.register_cycles);
   AddressMap map;
   map.Map(0, kMacBase, &dram);
-  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  map.MapDevice(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
   CorePort core_port(engine, map);
   core_port.Apply(events);
@@ -102,7 +101,7 @@ int main() {
   CommandDevice mac = MacArray(/*macs_per_cycle=*/64, /*access_cycles=*/2);
   AddressMap map;
   map.Map(0, kMacBase, &dram);
-  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  map.MapDevice(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
   CorePort core_port(engine, map);
   RecordingIss iss(core_port);

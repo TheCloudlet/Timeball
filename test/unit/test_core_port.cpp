@@ -23,8 +23,7 @@ constexpr uint64_t kStatus = 0x20;
 
 CommandDevice MacArray(Cycle access_cycles = 1) {
   return CommandDevice(
-      "mac", kMacBase, InitiatorId{1}, access_cycles, /*params=*/3, kStart,
-      kStatus,
+      "mac", InitiatorId{1}, access_cycles, /*params=*/3, kStart, kStatus,
       [](const std::vector<uint64_t>& p) { return p[0] * p[1] * p[2] / 64; });
 }
 
@@ -42,13 +41,13 @@ Cycle LastWorkFinish(const RecordingSink& sink, std::string_view resource) {
 
 TEST(CommandDevice, AnInitiatorProgramsItThroughTheAddressMap) {
   Memory<"DRAM"> dram(100);
-  CommandDevice mac("mac", kMacBase, InitiatorId{1}, 1, /*params=*/1,
+  CommandDevice mac("mac", InitiatorId{1}, 1, /*params=*/1,
                     /*start=*/0x08,
                     /*status=*/0x10,
                     [](const std::vector<uint64_t>& p) { return p[0]; });
   AddressMap map;
   map.Map(0, kMacBase, &dram);
-  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  map.MapDevice(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
   Initiator initiator(engine, 0);
 
@@ -59,13 +58,13 @@ TEST(CommandDevice, AnInitiatorProgramsItThroughTheAddressMap) {
 
   EXPECT_EQ(initiator.BusyUntil(), 43u);
 
-  CommandDevice core_mac("mac", kMacBase, InitiatorId{1}, 1, /*params=*/1,
+  CommandDevice core_mac("mac", InitiatorId{1}, 1, /*params=*/1,
                          /*start=*/0x08,
                          /*status=*/0x10,
                          [](const std::vector<uint64_t>& p) { return p[0]; });
   AddressMap core_map;
   core_map.Map(0, kMacBase, &dram);
-  core_map.Map(kMacBase, kMacBase + 0x100, &core_mac);
+  core_map.MapDevice(kMacBase, kMacBase + 0x100, &core_mac);
   EventEngine core_engine;
   CorePort core(core_engine, core_map);
   core.OnStore(kMacBase, 40);
@@ -76,18 +75,51 @@ TEST(CommandDevice, AnInitiatorProgramsItThroughTheAddressMap) {
   EXPECT_EQ(core.Now(), initiator.BusyUntil());
 }
 
+TEST(CommandDevice, ADeviceMappedAtANewBaseKeepsItsTiming) {
+  Memory<"DRAM"> dram(100);
+  CommandDevice mac("mac", InitiatorId{1}, 1, /*params=*/1,
+                    /*start=*/0x08, /*status=*/0x10,
+                    [](const std::vector<uint64_t>& p) { return p[0]; });
+  constexpr uint64_t kMovedBase = 0x6000'0000;
+  AddressMap map;
+  map.Map(0, kMovedBase, &dram);
+  map.MapDevice(kMovedBase, kMovedBase + 0x100, &mac);
+  EventEngine engine;
+  CorePort core(engine, map);
+
+  core.OnStore(kMovedBase, 40);
+  core.OnStore(kMovedBase + 0x08, 1);
+  core.OnLoad(kMovedBase + 0x10);
+  RecordingSink trace;
+  SyncChecked(core, &trace);
+
+  std::vector<uint64_t> map_addresses;
+  std::vector<uint64_t> device_offsets;
+  for (const Record& record : trace.records) {
+    if (record.resource == "AddressMap") {
+      map_addresses.push_back(record.addr);
+    } else if (record.resource == "mac") {
+      device_offsets.push_back(record.addr);
+    }
+  }
+  EXPECT_EQ(map_addresses, (std::vector<uint64_t>{kMovedBase, kMovedBase + 0x08,
+                                                  kMovedBase + 0x10}));
+  EXPECT_EQ(device_offsets, (std::vector<uint64_t>{0, 0x08, 0x10}));
+  EXPECT_EQ(core.Now(), 43u);
+}
+
 TEST(CommandDevice, ReadmeAddressGraphFinishesAt4205Cycles) {
   Memory<"DRAM"> dram(100);
   Memory<"SPM"> spm(5);
   Cache<"L1", 64, 8, 64, LRUPolicy, 4> l1(&dram);
   constexpr uint64_t kBase = 0x9000'0000;
   CommandDevice mac(
-      "mac", kBase, InitiatorId{1}, 1, 3, kStart, kStatus,
+      "mac", InitiatorId{1}, 1, 3, kStart, kStatus,
       [](const std::vector<uint64_t>& p) { return p[0] * p[1] * p[2] / 64; });
   AddressMap map;
   map.Map(0, 0x8000'0000, &l1);
   map.Map(0x8000'0000, 0x8001'0000, &spm);
-  map.Map(kBase, kBase + 0x100, &mac);
+  map.MapDevice(kBase, kBase + 0x100, &mac);
   EventEngine engine;
   CorePort core(engine, map);
 
@@ -144,7 +176,7 @@ TEST(CorePort, StartingADeviceCostsWhatItsParametersSay) {
   CommandDevice mac = MacArray(2);
   AddressMap map;
   map.Map(0, kMacBase, &dram);
-  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  map.MapDevice(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
   CorePort core_port(engine, map);
 
@@ -166,7 +198,7 @@ TEST(CorePort, ReadingStatusWaitsForTheWorkNotForEachPoll) {
   CommandDevice mac = MacArray(2);
   AddressMap map;
   map.Map(0, kMacBase, &dram);
-  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  map.MapDevice(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
   CorePort core_port(engine, map);
 
@@ -182,13 +214,13 @@ TEST(CorePort, ReadingStatusWaitsForTheWorkNotForEachPoll) {
 
 TEST(CorePort, StatusStillWaitsWhenWorkFinishedBeyondTheLastSync) {
   Memory<"DRAM"> dram(100);
-  CommandDevice mac("mac", kMacBase, InitiatorId{1}, 1, /*params=*/1,
+  CommandDevice mac("mac", InitiatorId{1}, 1, /*params=*/1,
                     /*start=*/0x08,
                     /*status=*/0x10,
                     [](const std::vector<uint64_t>& p) { return p[0]; });
   AddressMap map;
   map.Map(0, kMacBase, &dram);
-  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  map.MapDevice(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
   CorePort core_port(engine, map);
 
@@ -209,14 +241,14 @@ TEST(CorePort, ATransferOverlapsTheCoresComputeAndIsWaitedOnlyAtTheEnd) {
   // starts a 4 KB transfer, computes while it runs, then waits for it: the
   // total is the longer of the two, not their sum.
   Memory<"DRAM"> dram(100);
-  CommandDevice dma("dma", 0x5000'0000, InitiatorId{1}, 1, /*params=*/1,
+  CommandDevice dma("dma", InitiatorId{1}, 1, /*params=*/1,
                     /*start=*/0x08, /*status=*/0x10,
                     [](const std::vector<uint64_t>& p) {
                       return 20 + (p[0] + 31) / 32;  // 20 + bytes / 32
                     });
   AddressMap map;
   map.Map(0, 0x5000'0000, &dram);
-  map.Map(0x5000'0000, 0x5000'0100, &dma);
+  map.MapDevice(0x5000'0000, 0x5000'0100, &dma);
   EventEngine engine;
   CorePort core_port(engine, map);
 
@@ -235,10 +267,10 @@ TEST(DmaDevice, CopyContendsWithTheCoreForSharedMemory) {
   Cache<"L1", 1, 1, 64, LRUPolicy, 1> l1(&dram);
   constexpr uint64_t kDmaBase = 0x5000'0000;
   constexpr InitiatorId kDmaOrigin = 7;
-  DmaDevice dma("dma", kDmaBase, kDmaOrigin, dram, 1, 2);
+  DmaDevice dma("dma", kDmaOrigin, dram, 1, 2);
   AddressMap core_map;
   core_map.Map(0, kDmaBase, &l1);
-  core_map.Map(kDmaBase, kDmaBase + 0x100, &dma);
+  core_map.MapDevice(kDmaBase, kDmaBase + 0x100, &dma);
   EventEngine engine;
   CorePort core(engine, core_map);
 
@@ -278,10 +310,10 @@ TEST(DmaDevice, CopyContendsWithTheCoreForSharedMemory) {
 TEST(DmaDevice, CopyRunsAcrossAnEngineWindow) {
   Memory<"DRAM"> dram(10);
   constexpr uint64_t kDmaBase = 0x5000'0000;
-  DmaDevice dma("dma", kDmaBase, InitiatorId{7}, dram, 1, 2);
+  DmaDevice dma("dma", InitiatorId{7}, dram, 1, 2);
   AddressMap map;
   map.Map(0, kDmaBase, &dram);
-  map.Map(kDmaBase, kDmaBase + 0x100, &dma);
+  map.MapDevice(kDmaBase, kDmaBase + 0x100, &dma);
   EventEngine engine;
   Initiator core(engine, 0);
   core.Issue(map, kDmaBase, AccessType::kStore, 0x1000);
@@ -301,11 +333,11 @@ TEST(DmaDevice, CopyRunsAcrossAnEngineWindow) {
 TEST(CommandDevice, LaunchedWorkUsesTheDevicesOrigin) {
   Memory<"DRAM"> dram(10);
   constexpr InitiatorId kMacOrigin = 9;
-  CommandDevice mac("mac", kMacBase, kMacOrigin, 1, 1, 0x08, 0x10,
+  CommandDevice mac("mac", kMacOrigin, 1, 1, 0x08, 0x10,
                     [](const std::vector<uint64_t>& p) { return p[0]; });
   AddressMap map;
   map.Map(0, kMacBase, &dram);
-  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  map.MapDevice(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
   CorePort core(engine, map);
   core.OnStore(kMacBase, 4);
@@ -326,11 +358,11 @@ TEST(CommandDevice, LaunchedWorkUsesTheDevicesOrigin) {
 
 TEST(CommandDevice, FixedWorkRunsAcrossAnEngineWindow) {
   Memory<"DRAM"> dram(10);
-  CommandDevice mac("mac", kMacBase, InitiatorId{9}, 1, 1, 0x08, 0x10,
+  CommandDevice mac("mac", InitiatorId{9}, 1, 1, 0x08, 0x10,
                     [](const std::vector<uint64_t>& p) { return p[0]; });
   AddressMap map;
   map.Map(0, kMacBase, &dram);
-  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  map.MapDevice(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
   Initiator core(engine, 0);
   core.Issue(map, kMacBase, AccessType::kStore, 40);
@@ -350,7 +382,7 @@ TEST(CorePort, AnotherStartQueuesBehindWorkInProgress) {
   CommandDevice mac = MacArray();
   AddressMap map;
   map.Map(0, kMacBase, &dram);
-  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  map.MapDevice(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
   CorePort core_port(engine, map);
   for (int i = 0; i < 2; ++i) {

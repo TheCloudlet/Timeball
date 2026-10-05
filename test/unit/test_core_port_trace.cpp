@@ -19,7 +19,7 @@ constexpr uint64_t kStatus = 0x20;
 
 CommandDevice MacArray() {
   return CommandDevice(
-      "mac", kMacBase, InitiatorId{1}, 1, /*params=*/3, kStart, kStatus,
+      "mac", InitiatorId{1}, 1, /*params=*/3, kStart, kStatus,
       [](const std::vector<uint64_t>& p) { return p[0] * p[1] * p[2] / 64; });
 }
 
@@ -99,7 +99,7 @@ TEST(CorePortTrace, ApplyASequenceMatchesApplyingEachOneInOrder) {
   CommandDevice mac = MacArray();
   AddressMap map;
   map.Map(0, kMacBase, &dram);
-  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  map.MapDevice(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
   CorePort core_port(engine, map);
 
@@ -127,7 +127,7 @@ TEST(CorePortTrace, ReplayingARecordedTraceMatchesRunningItDirectly) {
   CommandDevice mac = MacArray();
   AddressMap map;
   map.Map(0, kMacBase, &dram);
-  map.Map(kMacBase, kMacBase + 0x100, &mac);
+  map.MapDevice(kMacBase, kMacBase + 0x100, &mac);
   EventEngine engine;
   CorePort core_port(engine, map, {.cpi = 2});
 
@@ -149,7 +149,7 @@ TEST(CorePortTrace, ReplayingARecordedTraceMatchesRunningItDirectly) {
   CommandDevice mac2 = MacArray();
   AddressMap map2;
   map2.Map(0, kMacBase, &dram2);
-  map2.Map(kMacBase, kMacBase + 0x100, &mac2);
+  map2.MapDevice(kMacBase, kMacBase + 0x100, &mac2);
   EventEngine engine2;
   CorePort core_port2(engine2, map2, {.cpi = 2});
   core_port2.Apply(recorded);
