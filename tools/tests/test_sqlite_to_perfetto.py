@@ -158,6 +158,31 @@ def convert(tmp_path, name="run", db=None, **options):
     return trace
 
 
+def test_optional_row_metadata_is_visible_on_slices(tmp_path):
+    db_path = make_db(tmp_path / "metadata.sqlite", ops=[OPS[0]], deps=[], tasks=[])
+    with sqlite3.connect(db_path) as db:
+        db.execute("ALTER TABLE ops ADD COLUMN metadata TEXT")
+        db.execute("UPDATE ops SET metadata = ?", (
+            '{"widget_id": 7, "source_row": "/sqlite?table=widget_rows&shard=2&widget_id=7"}',))
+    trace = convert(tmp_path, db=db_path)
+    try:
+        args = trace.args(trace.slices("work")[0]["arg_set_id"])
+        assert args["widget_id"] == 7
+        assert args["source_row"].endswith("widget_id=7")
+    finally:
+        trace.tp.close()
+
+
+def test_invalid_row_metadata_names_the_source_row(tmp_path):
+    db_path = make_db(tmp_path / "bad-metadata.sqlite", ops=[OPS[0]], deps=[], tasks=[])
+    with sqlite3.connect(db_path) as db:
+        db.execute("ALTER TABLE ops ADD COLUMN metadata TEXT")
+        db.execute("UPDATE ops SET metadata = 'not JSON'")
+    with pytest.raises(s2p.ConversionError, match="ops row 1: invalid metadata"):
+        s2p.convert(db_path, tmp_path / "bad-metadata.pftrace")
+    assert not (tmp_path / "bad-metadata.pftrace").exists()
+
+
 @pytest.fixture(scope="module")
 def full(tmp_path_factory):
     trace = convert(tmp_path_factory.mktemp("full"), flows=True)

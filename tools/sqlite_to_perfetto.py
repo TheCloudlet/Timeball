@@ -2,7 +2,8 @@
 """Converts an EventStore recording to a Perfetto trace.
 
 Reads the ops, deps, and tasks tables that timeball/event_store.hpp writes and
-nothing else, and writes a .pftrace that ui.perfetto.dev opens:
+nothing else, and writes a .pftrace that ui.perfetto.dev opens. An optional
+ops.metadata JSON object adds named arguments to each slice:
 
   tasks             one slice per tasks row
   <resource>
@@ -93,8 +94,10 @@ def _ops_columns(db, db_path):
         raise ConversionError(
             f"{db_path}: ops is missing column(s) "
             f"{', '.join(sorted(missing))}")
-    return ", ".join(f"o.{c}" if c in present else f"0 AS {c}"
-                     for c in _COLUMNS)
+    columns = ", ".join(f"o.{c}" if c in present else f"0 AS {c}"
+                        for c in _COLUMNS)
+    return columns + (", o.metadata" if "metadata" in present
+                      else ", NULL AS metadata")
 
 
 def _spans(db, cycle_range, task):
@@ -394,6 +397,16 @@ class _Writer:
             self._annotate(event, column, value)
         self._annotate(event, "wait_cycles", row["start"] - row["arrival"])
         self._annotate(event, "work_cycles", row["finish"] - row["start"])
+        if row["metadata"] is not None:
+            try:
+                metadata = json.loads(row["metadata"])
+            except json.JSONDecodeError as error:
+                raise ConversionError(
+                    f"ops row {row['rowid']}: invalid metadata JSON") from error
+            if not isinstance(metadata, dict):
+                raise ConversionError(f"ops row {row['rowid']}: invalid metadata object")
+            for name, value in metadata.items():
+                self._annotate(event, name, value)
         if row["deps"] is None:
             return
         depends_on = self._array(event, "depends_on")
