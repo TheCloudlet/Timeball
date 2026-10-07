@@ -497,3 +497,84 @@ def test_command_line_writes_a_trace(tmp_path):
     assert s2p.main([str(db), "-o", str(out), "--resource", "link"]) == 0
     trace = Trace(TraceProcessor(trace=str(out)))
     assert {s["resource"] for s in trace.slices("work")} == {"link"}
+
+
+def _bad_metadata_db(tmp_path):
+    db_path = make_db(tmp_path / "bad.sqlite", ops=[OPS[0]], deps=[], tasks=[])
+    with sqlite3.connect(db_path) as db:
+        db.execute("ALTER TABLE ops ADD COLUMN metadata TEXT")
+        db.execute("UPDATE ops SET metadata = 'not JSON'")
+    return db_path
+
+
+def test_command_line_refuses_to_overwrite_its_input(tmp_path, capsys):
+    db = _bad_metadata_db(tmp_path)
+    before = db.read_bytes()
+    assert s2p.main([str(db), "-o", str(db)]) == 1
+    assert str(db) in capsys.readouterr().err
+    assert db.read_bytes() == before
+
+
+def test_command_line_refuses_aliases_of_its_input(tmp_path, capsys):
+    db = make_db(tmp_path / "run.sqlite")
+    before = db.read_bytes()
+    link = tmp_path / "symlink.pftrace"
+    link.symlink_to(db)
+    hard = tmp_path / "hard.pftrace"
+    hard.hardlink_to(db)
+    for alias in (link, hard, tmp_path / "." / "run.sqlite"):
+        assert s2p.main([str(db), "-o", str(alias)]) == 1
+        assert str(alias) in capsys.readouterr().err
+        assert db.read_bytes() == before
+
+
+def test_failed_conversion_keeps_the_previous_trace(tmp_path, capsys):
+    db = _bad_metadata_db(tmp_path)
+    out = tmp_path / "prior.pftrace"
+    out.write_bytes(b"previous trace")
+    assert s2p.main([str(db), "-o", str(out)]) == 1
+    assert "ops row 1" in capsys.readouterr().err
+    assert out.read_bytes() == b"previous trace"
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "bad.sqlite", "prior.pftrace"]
+
+
+def test_failed_conversion_to_a_new_path_leaves_nothing(tmp_path):
+    db = _bad_metadata_db(tmp_path)
+    out = tmp_path / "new.pftrace"
+    assert s2p.main([str(db), "-o", str(out)]) == 1
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["bad.sqlite"]
+
+
+def test_successful_conversion_replaces_the_previous_trace(tmp_path):
+    db = make_db(tmp_path / "run.sqlite")
+    out = tmp_path / "run.pftrace"
+    out.write_bytes(b"previous trace")
+    assert s2p.main([str(db), "-o", str(out)]) == 0
+    trace = Trace(TraceProcessor(trace=str(out)))
+    try:
+        assert len(trace.slices("work")) == len(OPS)
+    finally:
+        trace.tp.close()
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "run.pftrace", "run.sqlite"]
+
+
+def test_output_symlink_is_replaced_and_its_target_kept(tmp_path):
+    db = make_db(tmp_path / "run.sqlite")
+    target = tmp_path / "target.pftrace"
+    target.write_bytes(b"other trace")
+    out = tmp_path / "run.pftrace"
+    out.symlink_to(target)
+    assert s2p.main([str(db), "-o", str(out)]) == 0
+    assert not out.is_symlink()
+    assert out.stat().st_size > 0
+    assert target.read_bytes() == b"other trace"
+
+
+def test_unwritable_output_directory_is_a_diagnostic(tmp_path, capsys):
+    db = make_db(tmp_path / "run.sqlite")
+    out = tmp_path / "missing" / "run.pftrace"
+    assert s2p.main([str(db), "-o", str(out)]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith("error:") and "missing" in err

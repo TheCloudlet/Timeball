@@ -24,8 +24,10 @@ import heapq
 import itertools
 import json
 import math
+import os
 import sqlite3
 import sys
+import tempfile
 from collections import OrderedDict
 from pathlib import Path
 
@@ -61,20 +63,50 @@ def convert(db_path, out_path, *, cycle_range=None, task=None, resources=None,
     draws every wait as slices, and queue_detail caps the rows named on a
     counter sample (0 names them all).
     """
+    _refuse_alias(db_path, out_path)
     db = sqlite3.connect(f"file:{Path(db_path)}?mode=ro", uri=True)
     try:
         columns = _ops_columns(db, db_path)
         spans = _spans(db, cycle_range, task)
+        # Written beside the target so the final rename is atomic, and
+        # published only once complete: a partial trace would open as if the
+        # run ended early, and must never replace a good one.
+        fd, tmp = tempfile.mkstemp(dir=Path(out_path).resolve().parent,
+                                   prefix=f".{Path(out_path).name}.",
+                                   suffix=".tmp")
         try:
-            with open(out_path, "wb") as f:
+            with os.fdopen(fd, "wb") as f:
                 _Writer(db, StreamingTraceProtoBuilder(f), columns, spans,
                         resources, flows, wait_slices, queue_detail).write()
+            os.chmod(tmp, _output_mode(out_path))
+            os.replace(tmp, out_path)
         except BaseException:
-            # A partial trace would open as if the run ended early.
-            Path(out_path).unlink(missing_ok=True)
+            Path(tmp).unlink(missing_ok=True)
             raise
     finally:
         db.close()
+
+
+def _refuse_alias(db_path, out_path):
+    """Rejects an output that is the recording under another name."""
+    same = Path(db_path).resolve() == Path(out_path).resolve()
+    try:
+        same = same or os.path.samefile(db_path, out_path)
+    except OSError:
+        pass  # the output does not exist yet, or the input is unreadable
+    if same:
+        raise ConversionError(
+            f"output {out_path} is the input recording {db_path}; "
+            "choose a different -o path")
+
+
+def _output_mode(out_path):
+    try:
+        return os.stat(out_path).st_mode & 0o7777
+    except OSError:
+        umask = os.umask(0)
+        os.umask(umask)
+        return 0o666 & ~umask
 
 
 def _ops_columns(db, db_path):
@@ -570,7 +602,7 @@ def main(argv=None):
         convert(args.db, output, cycle_range=cycle_range, task=args.task,
                 resources=args.resources, flows=args.flows,
                 wait_slices=args.wait_slices, queue_detail=args.queue_detail)
-    except (ConversionError, sqlite3.Error) as e:
+    except (ConversionError, sqlite3.Error, OSError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
     print(output)
