@@ -139,6 +139,27 @@ and the waiting is computed rather than estimated. This is the decision that
 makes every other one possible — a relative latency has nowhere to put "it
 waited".
 
+### Dependencies with a delay
+
+`When::after` starts work once every listed event has completed.
+`When::after_delay` lists events that must complete and then a further number
+of cycles before the work may arrive, such as a signal that takes a fixed time
+to cross a link. Both can be mixed, and the work arrives after the latest of
+them.
+
+```cpp
+// Arrives 5 cycles after `earlier` completes.
+engine.Submit({"notify", core, 0, 1, {.after_delay = {{earlier, 5}}}});
+```
+
+### Binding a node to a host resource
+
+By default an access node makes its own resource, named for the node. To make
+host operations and accesses contend for one existing resource, create it with
+`AddResource` and call `engine.BindAccessNode(node, resource)`. The node and the
+resource must have the same name, the resource must exist, and a node can be
+bound once. Records for both then name the same `resource_id`.
+
 ### Work requiring several resources
 
 An operation can require one unit of several resources at once. List the extra
@@ -216,6 +237,16 @@ JOIN ops o ON d.op = o.op AND o.name = 'matmul'
 JOIN ops p ON p.op = d.depends_on
 ORDER BY p.finish DESC LIMIT 1;
 ```
+
+Every record also carries `resource_id`, the engine's id for the resource it
+describes. Names are labels and two resources may share one, so a checker or
+analysis that must tell resources apart should key on the id, not the name. The
+SQLite store keeps the name.
+
+A caller that owns its own tables may add a nullable `metadata` column to `ops`
+holding one JSON object per row. Timeball never writes it; the Perfetto
+converter shows each key as a named argument on that row's slice, and rejects a
+row whose metadata is not valid JSON, naming the row.
 
 Python's stdlib `sqlite3` reads the file with no bespoke parser.
 `-DTIMEBALL_WITH_SQLITE=OFF` drops the store and the dependency entirely.
@@ -302,6 +333,14 @@ in-order accesses; an `AccessNode` receives them.
 | `CommandDevice` | Register accesses and fixed-cost work                                  |
 | `DmaDevice`     | Register accesses and a one-unit read then write through its own entry |
 
+An access has a type. `kLoad` and `kStore` read and write the addressed line.
+`kHint` is a load whose hit leaves replacement order alone, so a probe does not
+disturb what the cache would evict. `kFence` stops at the first cache or memory
+and costs that node's hit latency. A cache built with the `InstructionCache`
+template argument (the seventh, after `HitLatency`) also drops all its lines on
+a fence; a data cache keeps its dirty data. Fixed-latency memory ignores the
+type.
+
 A new node type says what serving an access costs it and where the access goes
 next (`Serve`), and optionally what changes once the data arrives (`Complete`,
 such as a fill). It needs only `timeball/node.hpp` — the vocabulary, with
@@ -328,6 +367,17 @@ git clone https://github.com/TheCloudlet/Timeball.git && cd Timeball
 cmake -B build -DTIMEBALL_BUILD_TESTS=ON && cmake --build build
 ctest --test-dir build
 ```
+
+### Using it from another CMake project
+
+```cmake
+add_subdirectory(third_party/timeball)
+target_link_libraries(my_host PRIVATE Timeball::engine)
+```
+
+The target carries its include paths and requires C++20. When Timeball is not
+the top-level project it leaves the host's compiler settings alone and builds
+no examples or benchmark; `-DTIMEBALL_BUILD_EXAMPLES=ON` turns them on.
 
 ## Embedding it
 

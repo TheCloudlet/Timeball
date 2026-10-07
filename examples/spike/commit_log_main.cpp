@@ -19,8 +19,8 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "cannot read %s\n", argv[1]);
     return 1;
   }
-  const timeball::CommitLogConversion converted =
-      timeball::ConvertCommitLog(in);
+  const spike_example::CommitLogConversion converted =
+      spike_example::ConvertCommitLog(in);
   if (!converted.ok()) {
     std::fprintf(stderr, "%s\n", converted.error.c_str());
     return 1;

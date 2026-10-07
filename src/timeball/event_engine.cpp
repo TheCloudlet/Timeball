@@ -160,7 +160,7 @@ bool EventEngine::Accepts(const Operation& op) const {
   if (op.resource.value() >= resources_.size() || !Accepts(op.when)) {
     return false;
   }
-  // ponytail: a few resources per operation; use a set if wide reservations
+  // A few resources per operation; use a set if wide reservations
   // make this quadratic duplicate check show up in a profile.
   for (std::size_t i = 0; i < op.additional_resources.size(); ++i) {
     const ResourceId id = op.additional_resources[i];
@@ -639,6 +639,10 @@ void EventEngine::Emit(const Job& job, Cycle finish, RecordSink* sink) {
   if (const auto* access = std::get_if<AccessJob>(&job.kind)) {
     const Hop& hop = access->path.back();
     record.resource = hop.node->NodeName();
+    const auto bound = node_resources_.find(hop.node);
+    assert(bound != node_resources_.end() &&
+           "Access node served without a registered resource");
+    record.resource_id = bound->second;
     record.addr = hop.request.addr;
     record.depth =
         access->base_depth + static_cast<uint32_t>(access->path.size() - 1);
@@ -650,6 +654,7 @@ void EventEngine::Emit(const Job& job, Cycle finish, RecordSink* sink) {
     record.after = job.after;
     for (ResourceId id : Unwrap<OperationJob>(job.kind).resources) {
       record.resource = resources_[id.value()].name;
+      record.resource_id = id;
       sink->OnRecord(record);
       record.after = {};  // dependencies belong to the operation, not each row
     }

@@ -71,7 +71,7 @@ void CheckingSink::OnRecord(const Record& record) {
   // capacity check below — an entry that has long since finished can still be
   // evidence that it was skipped over.
   std::vector<std::pair<Cycle, Cycle>>& order =
-      order_history_[std::string(record.resource)];
+      order_history_[record.resource_id];
   for (const auto& [arrival, start] : order) {
     const bool earlier_started_later =
         arrival < record.arrival && start > record.start;
@@ -92,8 +92,7 @@ void CheckingSink::OnRecord(const Record& record) {
 
   // Capacity: retired as soon as a record can no longer overlap what is kept —
   // right here, since overlap is exactly what capacity is about.
-  std::vector<Active>& active =
-      active_by_resource_[std::string(record.resource)];
+  std::vector<Active>& active = active_by_resource_[record.resource_id];
   std::erase_if(active,
                 [&](const Active& a) { return a.finish <= record.start; });
   const std::uint32_t capacity = CapacityOf(record.resource);

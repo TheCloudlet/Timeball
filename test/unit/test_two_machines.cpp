@@ -9,6 +9,7 @@
 #include "timeball/core_port_trace.hpp"
 
 using namespace timeball;
+using namespace spike_example;
 using namespace timeball::test;
 
 namespace {

@@ -12,7 +12,9 @@
 
 // Checks the engine's timing and device-work links against every record.
 // Collects violations; it does not assert.
-// Resources are keyed by name, so two nodes with the same name share a bucket.
+// Occupancy and arrival order are tracked per Record::resource_id, so two
+// resources sharing a name are checked separately. Capacities are still given
+// by name, so same-named resources share the one capacity listed for it.
 // Keep one sink across calls that depend on earlier ids.
 
 namespace timeball {
@@ -24,7 +26,8 @@ struct Violation {
 
 class CheckingSink final : public RecordSink {
  public:
-  // Capacity by Record::resource. Unlisted resources default to 1.
+  // Capacity by Record::resource name, applied to every resource with that
+  // name. Unlisted resources default to 1.
   explicit CheckingSink(
       std::unordered_map<std::string, std::uint32_t> capacities = {});
 
@@ -60,11 +63,11 @@ class CheckingSink final : public RecordSink {
   // already-finished record can still have been served ahead of one that
   // arrived first, long after they stop overlapping. So arrival order is
   // checked against a second, separately kept history.
-  std::unordered_map<std::string, std::vector<Active>> active_by_resource_;
+  std::unordered_map<ResourceId, std::vector<Active>> active_by_resource_;
   // Every (arrival, start) pair seen for a resource, checked against every new
   // one. Not retired by time — only Retire() prunes it, by arrival — so it
   // grows with records on that resource since the last Retire.
-  std::unordered_map<std::string, std::vector<std::pair<Cycle, Cycle>>>
+  std::unordered_map<ResourceId, std::vector<std::pair<Cycle, Cycle>>>
       order_history_;
   // A dependency's completion, so a later record's `after` can be checked
   // against it. Grows with distinct operations submitted since the last Retire;

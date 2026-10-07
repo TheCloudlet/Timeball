@@ -70,6 +70,8 @@ struct Record {
   EventId parent = 0;
   std::string_view name;  // the operation's name; "load" or "store"
   std::string_view resource;
+  // The same resource by id. Names are labels and may repeat; ids do not.
+  ResourceId resource_id = 0;
   InitiatorId initiator = 0;
   uint64_t addr = 0;       // an access's address at this hop
   uint32_t depth = 0;      // hops below the entry; 0 if it entered here

@@ -8,6 +8,7 @@
 #include <cassert>
 #include <cinttypes>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -114,7 +115,8 @@ int main() {
   const Cycle direct_total = core_port.Now();
 
   // ---- Write the recording to a file, as if handed to someone else ------
-  const std::string path = "/tmp/timeball_core_port_replay_example.trace";
+  const std::filesystem::path path = std::filesystem::temp_directory_path() /
+                                     "timeball_core_port_replay_example.trace";
   {
     std::ofstream out(path);
     WriteCorePortTrace(out, iss.Events());
@@ -129,6 +131,7 @@ int main() {
            "the trace this example just wrote should parse");
     replayed = std::move(*parsed);
   }
+  std::filesystem::remove(path);
 
   constexpr Hardware kFaster{"faster (mac 128/cyc, reg 1cyc)", 128, 1};
   constexpr Hardware kSlower{"slower (mac 32/cyc, reg 4cyc)", 32, 4};

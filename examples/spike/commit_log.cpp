@@ -12,8 +12,10 @@
 #include <utility>
 #include <vector>
 
-namespace timeball {
+namespace spike_example {
 namespace {
+
+using namespace timeball;
 
 struct Scan {
   std::string_view rest;
@@ -205,4 +207,4 @@ CommitLogConversion ConvertCommitLog(std::istream& in) {
   return {std::move(events), {}};
 }
 
-}  // namespace timeball
+}  // namespace spike_example

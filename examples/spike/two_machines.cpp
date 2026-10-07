@@ -21,7 +21,7 @@ namespace {
 template <typename MachineT>
 timeball::Cycle CompletionOf(
     const std::vector<timeball::CorePortEvent>& events) {
-  MachineT machine(timeball::kReplayConfig);
+  MachineT machine(spike_example::kReplayConfig);
   timeball::CorePort& core_port = machine.GetCorePort();
   core_port.Apply(events);
   core_port.Sync();
@@ -47,9 +47,9 @@ int main(int argc, char** argv) {
   }
 
   const timeball::Cycle one_line =
-      CompletionOf<timeball::OneLineMachine>(*events);
+      CompletionOf<spike_example::OneLineMachine>(*events);
   const timeball::Cycle working_set =
-      CompletionOf<timeball::WorkingSetMachine>(*events);
+      CompletionOf<spike_example::WorkingSetMachine>(*events);
 
   std::printf("one line:    %" PRIu64 " cycles\n", one_line.value());
   std::printf("working set: %" PRIu64 " cycles\n", working_set.value());

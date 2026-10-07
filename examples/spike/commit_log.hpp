@@ -13,10 +13,10 @@
 // part of libtimeball_engine: a host that never sees Spike does not compile
 // this.
 
-namespace timeball {
+namespace spike_example {
 
 struct CommitLogConversion {
-  std::vector<CorePortEvent> events;
+  std::vector<timeball::CorePortEvent> events;
   // Empty when the log converted. Set when the log names a second hart, or a
   // line is not one committed instruction. ConvertCommitLog leaves events empty
   // in that case: nothing is merged onto the one core port.
@@ -27,6 +27,6 @@ struct CommitLogConversion {
 
 [[nodiscard]] CommitLogConversion ConvertCommitLog(std::istream& in);
 
-}  // namespace timeball
+}  // namespace spike_example
 
 #endif  // EXAMPLES_SPIKE_COMMIT_LOG_HPP

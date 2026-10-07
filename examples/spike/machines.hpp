@@ -10,16 +10,18 @@
 // block. The other holds 64 KiB, which covers the data working set of
 // examples/spike/scan.c, including a proxy kernel's own data accesses.
 
-namespace timeball {
+namespace spike_example {
 
-inline constexpr MachineConfig kReplayConfig{
+inline constexpr timeball::MachineConfig kReplayConfig{
     .dram_latency = 100,
     .core_port = {.cpi = 1},
 };
 
-using OneLineMachine = Machine<"L1", 1, 1, 64, LRUPolicy, 1>;
-using WorkingSetMachine = Machine<"L1", 256, 4, 64, LRUPolicy, 1>;
+using OneLineMachine =
+    timeball::Machine<"L1", 1, 1, 64, timeball::LRUPolicy, 1>;
+using WorkingSetMachine =
+    timeball::Machine<"L1", 256, 4, 64, timeball::LRUPolicy, 1>;
 
-}  // namespace timeball
+}  // namespace spike_example
 
 #endif  // EXAMPLES_SPIKE_MACHINES_HPP

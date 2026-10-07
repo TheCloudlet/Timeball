@@ -1,3 +1,5 @@
+// Copyright 2025-2026 Yi-Ping Pan (Cloudlet)
+
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -573,4 +575,22 @@ TEST(EventEngine, InFlightWorkStaysBoundedAcrossWindows) {
   const std::size_t peak = PeakInFlight(200);  // 4,000 accesses
   EXPECT_EQ(PeakInFlight(400), peak);          // 8,000 accesses
   EXPECT_LT(peak, 100u);
+}
+
+TEST(EventEngine, RecordsTellSameNamedResourcesApartById) {
+  EventEngine engine;
+  const ResourceId first = engine.AddResource({"unit", 1});
+  const ResourceId second = engine.AddResource({"unit", 1});
+  engine.Submit({"a", first, 0, 10, {0, {}}});
+  engine.Submit({"b", second, 0, 10, {0, {}}});
+
+  RecordingSink trace;
+  CheckingSink checker;
+  RunChecked(engine, checker, &trace);
+  // Overlapping on one capacity-1 name would be a violation; they are two
+  // resources.
+  ReportViolations(checker);
+  ASSERT_EQ(trace.records.size(), 2u);
+  EXPECT_EQ(trace.records[0].resource_id, first);
+  EXPECT_EQ(trace.records[1].resource_id, second);
 }

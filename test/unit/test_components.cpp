@@ -63,13 +63,11 @@ struct OneAtATime {
   RecordingSink trace;
   CheckingSink checker;
 
-  // The checker names a resource by the node's declared name (Record has no
-  // per-instance identity), so two distinct node instances sharing one name —
-  // as two same-typed caches necessarily do — are indistinguishable to it and
-  // merge into one bucket. A test that constructs several such instances gives
-  // their combined true capacity here, e.g. {{"Tiny", 2}} for two capacity-1
-  // caches both named "Tiny"; this restores the capacity check and leaves the
-  // others (order, dependency) intact.
+  // The checker tracks each resource by id, but looks capacity up by the
+  // node's declared name, so two node instances sharing one name — as two
+  // same-typed caches necessarily do — are checked against the same listed
+  // capacity. A test that constructs several such instances lists the capacity
+  // each one has, e.g. {{"Tiny", 1}} for capacity-1 caches both named "Tiny".
   explicit OneAtATime(
       std::unordered_map<std::string, std::uint32_t> capacities = {})
       : checker(std::move(capacities)) {}
@@ -135,9 +133,9 @@ TEST(Cache, EvictionHitMissAndStoreSequence) {
 }
 
 TEST(Cache, SharedSuccessorContentionAndPerNodeState) {
-  // Two distinct "Tiny" instances: their combined true capacity is 2, given
-  // explicitly since the checker cannot see instance identity (see OneAtATime).
-  OneAtATime tl({{"Tiny", 2}});
+  // Two distinct "Tiny" instances, each capacity 1: the checker tells them
+  // apart by resource id, so no capacity needs listing.
+  OneAtATime tl;
   // Two caches referencing one successor — the thing a template-bound successor
   // cannot express, since each would need a distinct type. Asserted through
   // completion cycles rather than by inspecting the edge.
@@ -235,9 +233,8 @@ TEST(Cache, EngineRecordsEveryHopOfAnAccess) {
 }
 
 TEST(Cache, RecordsSplitWaitingFromWorking) {
-  // See SharedSuccessorContentionAndPerNodeState above: two "Tiny" instances,
-  // combined capacity given explicitly.
-  OneAtATime tl({{"Tiny", 2}});
+  // See SharedSuccessorContentionAndPerNodeState above: two "Tiny" instances.
+  OneAtATime tl;
   // Every record says how long its resource made it wait and how long it
   // worked, so a report can tell a slow node from a busy one. Two caches share
   // a memory: the second miss arrives while the memory is busy.

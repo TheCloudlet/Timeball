@@ -1,13 +1,17 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 project(Timeball VERSION 1.0)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-# Include directories
-include_directories(include third_party)
+# As a subdirectory of a host project, Timeball must not change the host's
+# settings or build its examples and tests.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  set(TIMEBALL_IS_TOP_LEVEL ON)
+  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD_REQUIRED True)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+else()
+  set(TIMEBALL_IS_TOP_LEVEL OFF)
+endif()
 
 # The engine. Node types are templates and stay in headers; everything that
 # need not be — the timeline, routing — compiles once into here, so a host
@@ -21,7 +25,11 @@ add_library(timeball_engine
   src/timeball/checking_sink.cpp
   src/timeball/event_engine.cpp
 )
-target_include_directories(timeball_engine PUBLIC include)
+target_compile_features(timeball_engine PUBLIC cxx_std_20)
+target_include_directories(timeball_engine PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party>)
+add_library(Timeball::engine ALIAS timeball_engine)
 
 # Recording to a database is opt-out: -DTIMEBALL_WITH_SQLITE=OFF drops the
 # event store and the sqlite3 dependency entirely, so a host that wants timing
@@ -44,35 +52,39 @@ if(TIMEBALL_WITH_SQLITE)
   endif()
 endif()
 
-# The example host: a stand-in functional simulator timed by hooking only its
-# load/store path. Needs nothing beyond the engine, so it is always built.
-add_executable(mmio_accelerator examples/mmio_accelerator.cpp)
-target_link_libraries(mmio_accelerator PRIVATE timeball_engine)
+option(TIMEBALL_BUILD_EXAMPLES "Build the examples and benchmark"
+       ${TIMEBALL_IS_TOP_LEVEL})
+if(TIMEBALL_BUILD_EXAMPLES)
+  # The example host: a stand-in functional simulator timed by hooking only its
+  # load/store path. Needs nothing beyond the engine.
+  add_executable(mmio_accelerator examples/mmio_accelerator.cpp)
+  target_link_libraries(mmio_accelerator PRIVATE timeball_engine)
 
-# Record a run's CorePortEvents once, replay against different hardware parameters.
-add_executable(core_port_replay examples/core_port_replay.cpp)
-target_link_libraries(core_port_replay PRIVATE timeball_engine)
+  # Record a run's CorePortEvents once, replay against different hardware parameters.
+  add_executable(core_port_replay examples/core_port_replay.cpp)
+  target_link_libraries(core_port_replay PRIVATE timeball_engine)
 
-# One committed transcript, replayed against two chip graphs.
-add_executable(transcript_replay examples/transcript_replay.cpp)
-target_link_libraries(transcript_replay PRIVATE timeball_engine)
-target_compile_definitions(transcript_replay PRIVATE
-  TIMEBALL_TRANSCRIPT_PATH="${CMAKE_SOURCE_DIR}/examples/data/transcript.trace")
+  # One committed transcript, replayed against two chip graphs.
+  add_executable(transcript_replay examples/transcript_replay.cpp)
+  target_link_libraries(transcript_replay PRIVATE timeball_engine)
+  target_compile_definitions(transcript_replay PRIVATE
+    TIMEBALL_TRANSCRIPT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/examples/data/transcript.trace")
 
-# One committed transcript, two caches. The converter is the example's:
-# libtimeball_engine does not gain a Spike parser.
-add_executable(commit_log examples/spike/commit_log_main.cpp
-  examples/spike/commit_log.cpp)
-target_link_libraries(commit_log PRIVATE timeball_engine)
-target_include_directories(commit_log PRIVATE examples/spike)
+  # One committed transcript, two caches. The converter is the example's:
+  # libtimeball_engine does not gain a Spike parser.
+  add_executable(commit_log examples/spike/commit_log_main.cpp
+    examples/spike/commit_log.cpp)
+  target_link_libraries(commit_log PRIVATE timeball_engine)
+  target_include_directories(commit_log PRIVATE examples/spike)
 
-add_executable(two_machines examples/spike/two_machines.cpp)
-target_link_libraries(two_machines PRIVATE timeball_engine)
-target_include_directories(two_machines PRIVATE examples/spike)
+  add_executable(two_machines examples/spike/two_machines.cpp)
+  target_link_libraries(two_machines PRIVATE timeball_engine)
+  target_include_directories(two_machines PRIVATE examples/spike)
 
-# Throughput and footprint, one scenario per run: bench/throughput.cpp.
-add_executable(throughput bench/throughput.cpp)
-target_link_libraries(throughput PRIVATE timeball_engine)
+  # Throughput and footprint, one scenario per run: bench/throughput.cpp.
+  add_executable(throughput bench/throughput.cpp)
+  target_link_libraries(throughput PRIVATE timeball_engine)
+endif()
 
 # Testing is opt-in: -DTIMEBALL_BUILD_TESTS=ON. Off, building the engine and
 # the example needs nothing but a compiler — no network, no GoogleTest.
@@ -91,7 +103,7 @@ if(TIMEBALL_BUILD_TESTS)
   enable_testing()
   include(GoogleTest)
 
-  add_executable(unit_tests test/unit/test_main.cpp test/unit/test_core_port.cpp
+  add_executable(unit_tests test/unit/test_components.cpp test/unit/test_core_port.cpp
     test/unit/test_core_port_trace.cpp test/unit/test_checking_sink.cpp
     test/unit/test_commit_log.cpp test/unit/test_machine.cpp
     test/unit/test_record_query.cpp test/unit/test_reference_scheduler.cpp
@@ -99,8 +111,8 @@ if(TIMEBALL_BUILD_TESTS)
     examples/spike/commit_log.cpp)
   target_include_directories(unit_tests PRIVATE examples/spike)
   target_compile_definitions(unit_tests PRIVATE
-    "TIMEBALL_SPIKE_LOG=\"${CMAKE_SOURCE_DIR}/examples/spike/commit.log\""
-    "TIMEBALL_SPIKE_TRACE=\"${CMAKE_SOURCE_DIR}/examples/spike/program.trace\"")
+    "TIMEBALL_SPIKE_LOG=\"${CMAKE_CURRENT_SOURCE_DIR}/examples/spike/commit.log\""
+    "TIMEBALL_SPIKE_TRACE=\"${CMAKE_CURRENT_SOURCE_DIR}/examples/spike/program.trace\"")
   target_link_libraries(unit_tests PRIVATE timeball_engine GTest::gtest_main)
   gtest_discover_tests(unit_tests)
 
@@ -108,33 +120,35 @@ if(TIMEBALL_BUILD_TESTS)
   target_link_libraries(event_engine_tests PRIVATE timeball_engine GTest::gtest_main)
   gtest_discover_tests(event_engine_tests)
 
-  # The example must keep running, and keep its answer, as the engine
-  # changes: 8 tiles of a 4096-cycle multiply, overlapped with the core.
-  add_test(NAME mmio_accelerator_example COMMAND mmio_accelerator)
-  set_tests_properties(mmio_accelerator_example PROPERTIES
-    PASS_REGULAR_EXPRESSION "total: 33800 cycles")
+  if(TIMEBALL_BUILD_EXAMPLES)
+    # The example must keep running, and keep its answer, as the engine
+    # changes: 8 tiles of a 4096-cycle multiply, overlapped with the core.
+    add_test(NAME mmio_accelerator_example COMMAND mmio_accelerator)
+    set_tests_properties(mmio_accelerator_example PROPERTIES
+      PASS_REGULAR_EXPRESSION "total: 33800 cycles")
 
-  # core_port_replay.cpp itself asserts faster hardware finishes the recorded
-  # program sooner and slower hardware finishes it later; the three exact
-  # cycle counts here pin the record/replay pipeline's own arithmetic
-  # without also pinning the printed labels, so relabelling the scenarios
-  # does not break this test.
-  add_test(NAME core_port_replay_example COMMAND core_port_replay)
-  set_tests_properties(core_port_replay_example PROPERTIES
-    PASS_REGULAR_EXPRESSION "5106 cycles.*3053 cycles.*9212 cycles")
+    # core_port_replay.cpp itself asserts faster hardware finishes the recorded
+    # program sooner and slower hardware finishes it later; the three exact
+    # cycle counts here pin the record/replay pipeline's own arithmetic
+    # without also pinning the printed labels, so relabelling the scenarios
+    # does not break this test.
+    add_test(NAME core_port_replay_example COMMAND core_port_replay)
+    set_tests_properties(core_port_replay_example PROPERTIES
+      PASS_REGULAR_EXPRESSION "5106 cycles.*3053 cycles.*9212 cycles")
 
-  # transcript_replay.cpp checks the ordering itself and exits non-zero if
-  # it does not hold, so this test locks that ordering only — never the
-  # absolute cycle counts, which change if the transcript does (issue #34).
-  add_test(NAME transcript_replay_example COMMAND transcript_replay)
+    # transcript_replay.cpp checks the ordering itself and exits non-zero if
+    # it does not hold, so this test locks that ordering only — never the
+    # absolute cycle counts, which change if the transcript does (issue #34).
+    add_test(NAME transcript_replay_example COMMAND transcript_replay)
 
-  # The example prints both completion cycles and exits non-zero when the
-  # one-line cache does not finish later. The pattern checks that both
-  # numbers were printed. It does not pin them; test_two_machines.cpp locks
-  # the order.
-  add_test(NAME two_machines_example COMMAND two_machines
-    ${CMAKE_SOURCE_DIR}/examples/spike/program.trace)
-  set_tests_properties(two_machines_example PROPERTIES
-    PASS_REGULAR_EXPRESSION
-    "one line: +[0-9]+ cycles.*working set: +[0-9]+ cycles")
+    # The example prints both completion cycles and exits non-zero when the
+    # one-line cache does not finish later. The pattern checks that both
+    # numbers were printed. It does not pin them; test_two_machines.cpp locks
+    # the order.
+    add_test(NAME two_machines_example COMMAND two_machines
+      ${CMAKE_CURRENT_SOURCE_DIR}/examples/spike/program.trace)
+    set_tests_properties(two_machines_example PROPERTIES
+      PASS_REGULAR_EXPRESSION
+      "one line: +[0-9]+ cycles.*working set: +[0-9]+ cycles")
+  endif()
 endif()
