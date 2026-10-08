@@ -13,11 +13,15 @@
 #include <cinttypes>
 #include <cstdint>
 #include <cstdio>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "timeball/checking_sink.hpp"
 #include "timeball/core_port.hpp"
+#ifdef TIMEBALL_WITH_SQLITE
+#include "timeball/event_store.hpp"
+#endif
 #include "timeball/machine.hpp"
 #include "timeball/record_query.hpp"
 #include "timeball/timeball.hpp"
@@ -75,7 +79,9 @@ class FakeIss {
   CorePort* core_port_;
 };
 
-int main() {
+// Optional argv[1]: also record the run to that SQLite file, for
+// tools/sqlite_to_perfetto.py.
+int main(int argc, char** argv) {
   // Vector op over n elements: n / lanes cycles. Multiply of MxK by KxN: M*N*K
   // / (MACs per cycle).
   CommandDevice vpu("vpu", InitiatorId{1}, 2, 3, kStart, kStatus,
@@ -106,6 +112,20 @@ int main() {
   // retire it in step with the engine's own horizon (README, "Checking the
   // engine").
   CheckingSink checker;
+#ifdef TIMEBALL_WITH_SQLITE
+  std::optional<EventStore> store;
+  if (argc > 1) {
+    store.emplace(argv[1]);
+    assert(store->IsOpen());
+  }
+  RecordSink* store_sink = store ? &*store : nullptr;
+#else
+  (void)argc;
+  (void)argv;
+  RecordSink* store_sink = nullptr;
+#endif
+  BroadcastSink checked(&summary, &checker);
+  BroadcastSink both(&checked, store_sink);
 
   // Eight 64x64x64 tiles. Per tile: load the operand descriptors, have the VPU
   // preprocess A, then the MAC multiply — the MAC of one tile overlapping the
@@ -119,12 +139,10 @@ int main() {
     iss.WaitDevice(kVpuBase);
     iss.WaitDevice(kMacBase);  // the previous tile's multiply
     iss.RunDevice(kMacBase, 64, 64, 64);
-    BroadcastSink both(&summary, &checker);
     core_port.Sync(&both);  // a long program syncs as it goes
     checker.Retire(core_port.Now());
   }
   iss.WaitDevice(kMacBase);
-  BroadcastSink both(&summary, &checker);
   core_port.Sync(&both);
 
   for (const auto& v : checker.Violations()) {
@@ -141,5 +159,11 @@ int main() {
     std::printf("%-6s %10" PRIu64 " %10" PRIu64 "\n", name.c_str(),
                 t.waiting.value(), t.working.value());
   }
+#ifdef TIMEBALL_WITH_SQLITE
+  if (store && !store->Close()) {
+    std::fprintf(stderr, "%s\n", std::string(store->Error()).c_str());
+    return 1;
+  }
+#endif
   return 0;
 }

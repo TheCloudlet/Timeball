@@ -8,22 +8,38 @@
 // invented. They are Timeball's timing of the committed accesses, not a
 // comparison against silicon or RTL.
 
+#include <cassert>
 #include <cinttypes>
 #include <cstdio>
 #include <fstream>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include "machines.hpp"
 #include "timeball/core_port_trace.hpp"
+#ifdef TIMEBALL_WITH_SQLITE
+#include "timeball/event_store.hpp"
+#endif
 
 namespace {
 
 template <typename MachineT>
-timeball::Cycle CompletionOf(
-    const std::vector<timeball::CorePortEvent>& events) {
+timeball::Cycle CompletionOf(const std::vector<timeball::CorePortEvent>& events,
+                             const std::string& sqlite_path) {
   MachineT machine(spike_example::kReplayConfig);
   timeball::CorePort& core_port = machine.GetCorePort();
   core_port.Apply(events);
+#ifdef TIMEBALL_WITH_SQLITE
+  if (!sqlite_path.empty()) {
+    timeball::EventStore store(sqlite_path);
+    assert(store.IsOpen());
+    core_port.Sync(&store);
+    assert(store.Close());
+    return core_port.Now();
+  }
+#endif
+  (void)sqlite_path;
   core_port.Sync();
   return core_port.Now();
 }
@@ -31,8 +47,10 @@ timeball::Cycle CompletionOf(
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 2) {
-    std::fprintf(stderr, "usage: two_machines <program.trace>\n");
+  if (argc != 2 && argc != 4) {
+    std::fprintf(stderr,
+                 "usage: two_machines <program.trace> [one_line.sqlite "
+                 "working_set.sqlite]\n");
     return 2;
   }
   std::ifstream in(argv[1]);
@@ -46,10 +64,12 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  const std::string one_line_db = argc == 4 ? argv[2] : "";
+  const std::string working_set_db = argc == 4 ? argv[3] : "";
   const timeball::Cycle one_line =
-      CompletionOf<spike_example::OneLineMachine>(*events);
+      CompletionOf<spike_example::OneLineMachine>(*events, one_line_db);
   const timeball::Cycle working_set =
-      CompletionOf<spike_example::WorkingSetMachine>(*events);
+      CompletionOf<spike_example::WorkingSetMachine>(*events, working_set_db);
 
   std::printf("one line:    %" PRIu64 " cycles\n", one_line.value());
   std::printf("working set: %" PRIu64 " cycles\n", working_set.value());

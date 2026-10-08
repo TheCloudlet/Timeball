@@ -13,6 +13,27 @@ comparison against silicon or RTL.
 The test locks only the order: the one-line cache finishes later. It does
 not lock the cycle counts, and it does not run Spike.
 
+## What is modeled
+
+```
+ Spike (external; one hart, rv64gc, cache models off) running pk + scan.c
+   | --log-commits -> commit.log
+   v
+ commit_log -> program.trace (CorePortEvents: retire, load, store)
+   | replayed; Spike is not run again
+   v
+ Timeball Machine
+   CorePort (cpi = 1)            data accesses only, no instruction fetch
+     v
+   L1 data cache, 64 B lines, LRU, hit = 1 cycle
+     one line (1 set x 1 way)  or  64 KiB (256 sets x 4 ways)
+     v miss
+   DRAM, 100 cycles
+```
+
+There is no instruction cache, L2, TLB, bus, or second core. Only what the
+commit log records is timed.
+
 ## Regenerating the transcript
 
 Spike, the proxy kernel (`pk`), and `riscv64-unknown-elf-gcc` are external
