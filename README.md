@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/img/cover.png" alt="Timeball: a timing engine for your simulator" width="720">
+</p>
+
 # Timeball
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -8,6 +12,12 @@
 **Timeball is a timing engine that you link into your own simulator.** You
 describe a chip as a graph of connected units, and Timeball computes when each
 access completes. Your simulator runs the program.
+
+![One run of examples/mmio_accelerator in Perfetto: per-resource work lanes for
+the core, L1, DRAM, a vector unit and a MAC array](docs/img/mmio-perfetto.png)
+
+*`examples/mmio_accelerator` recorded to SQLite and opened in
+[Perfetto](https://ui.perfetto.dev) with `tools/sqlite_to_perfetto.py`.*
 
 ## The name
 
