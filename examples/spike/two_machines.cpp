@@ -5,7 +5,7 @@
 // form of a Spike commit log. Spike is not run here.
 //
 // These cycles omit instruction fetch: a commit log has no fetch, and none is
-// invented. They are Timeball's timing of the committed accesses, not a
+// invented. They are timeball's timing of the committed accesses, not a
 // comparison against silicon or RTL.
 
 #include <cassert>

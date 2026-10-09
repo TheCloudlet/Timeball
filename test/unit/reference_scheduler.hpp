@@ -9,7 +9,7 @@
 // (O(cycles * ops)) and exactly the point: a bug shaped like the engine's own
 // implementation cannot also be shaped like this one.
 //
-// Test-only. Not part of the library Timeball ships.
+// Test-only. Not part of the library timeball ships.
 
 #ifndef TIMEBALL_TEST_REFERENCE_SCHEDULER_HPP
 #define TIMEBALL_TEST_REFERENCE_SCHEDULER_HPP

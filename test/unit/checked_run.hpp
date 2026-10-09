@@ -11,7 +11,7 @@
 // see the windowed helpers in test_event_engine.cpp and test_core_port.cpp for
 // that shape.
 //
-// Test-only. Not part of the library Timeball ships.
+// Test-only. Not part of the library timeball ships.
 
 #ifndef TIMEBALL_TEST_CHECKED_RUN_HPP
 #define TIMEBALL_TEST_CHECKED_RUN_HPP

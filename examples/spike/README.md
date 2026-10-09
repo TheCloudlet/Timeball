@@ -7,7 +7,7 @@ It prints both completion cycles.
 
 Those cycles omit instruction fetch. A commit log records retired
 instructions and their data accesses, and the converter does not invent
-fetches. The numbers are Timeball timing that transcript. They are not a
+fetches. The numbers are timeball timing that transcript. They are not a
 comparison against silicon or RTL.
 
 The test locks only the order: the one-line cache finishes later. It does
@@ -22,7 +22,7 @@ not lock the cycle counts, and it does not run Spike.
  commit_log -> program.trace (CorePortEvents: retire, load, store)
    | replayed; Spike is not run again
    v
- Timeball Machine
+ timeball Machine
    CorePort (cpi = 1)            data accesses only, no instruction fetch
      v
    L1 data cache, 64 B lines, LRU, hit = 1 cycle

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 project(Timeball VERSION 1.0)
 
-# As a subdirectory of a host project, Timeball must not change the host's
+# As a subdirectory of a host project, timeball must not change the host's
 # settings or build its examples and tests.
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   set(TIMEBALL_IS_TOP_LEVEL ON)
@@ -15,7 +15,7 @@ endif()
 
 # The engine. Node types are templates and stay in headers; everything that
 # need not be — the timeline, routing — compiles once into here, so a host
-# embedding Timeball does not pay for it in every translation unit.
+# embedding timeball does not pay for it in every translation unit.
 add_library(timeball_engine
   src/timeball/address_map.cpp
   src/timeball/command_device.cpp
@@ -30,6 +30,7 @@ target_include_directories(timeball_engine PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party>)
 add_library(Timeball::engine ALIAS timeball_engine)
+add_library(timeball::engine ALIAS timeball_engine)
 
 # Recording to a database is opt-out: -DTIMEBALL_WITH_SQLITE=OFF drops the
 # event store and the sqlite3 dependency entirely, so a host that wants timing

@@ -6,7 +6,7 @@
 // reports the instructions it retires and the loads and stores it performs. The
 // program runs a dispatch core that feeds a vector unit and a MAC array through
 // memory-mapped registers — write the sizes, write START, poll STATUS — which
-// is how software drives an accelerator. Timeball sees nothing else, and
+// is how software drives an accelerator. timeball sees nothing else, and
 // answers how long it took and where the time went.
 
 #include <cassert>

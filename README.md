@@ -1,16 +1,16 @@
 <p align="center">
-  <img src="docs/img/cover.png" alt="Timeball: a timing engine for your simulator" width="720">
+  <img src="docs/img/cover.png" alt="timeball: a timing engine for your simulator" width="720">
 </p>
 
-# Timeball
+# timeball
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![C++20](https://img.shields.io/badge/c%2B%2B-20-blue.svg)
 ![CI/CD](https://github.com/TheCloudlet/timeball/workflows/CI%2FCD%20Pipeline/badge.svg)
 ![Format](https://github.com/TheCloudlet/timeball/workflows/Format%20Check/badge.svg)
 
-**Timeball is a timing engine that you link into your own simulator.** You
-describe a chip as a graph of connected units, and Timeball computes when each
+**timeball is a timing engine that you link into your own simulator.** You
+describe a chip as a graph of connected units, and timeball computes when each
 access completes. Your simulator runs the program.
 
 ![One run of examples/mmio_accelerator in Perfetto: per-resource work lanes for
@@ -24,8 +24,8 @@ the core, L1, DRAM, a vector unit and a MAC array](docs/img/mmio-perfetto.png)
 A [time ball](https://en.wikipedia.org/wiki/Time_ball) is a ball on a mast,
 dropped at an agreed hour so every ship in the harbor can set its chronometer
 by the same instant. The ball does not sail; it only keeps the time the others
-read. Timeball plays that part for a simulator. Your simulator decides what
-runs. Timeball keeps the one timeline that says when, and how long each access
+read. timeball plays that part for a simulator. Your simulator decides what
+runs. timeball keeps the one timeline that says when, and how long each access
 waited.
 
 ## The problem
@@ -48,15 +48,15 @@ It is also wrong once anything is shared. Forty cycles per access holds while
 accesses run one at a time. When two agents use the same resource, one waits,
 and a fixed number cannot show the wait. Both agents need one timeline.
 
-Timeball keeps that timeline in its own engine, linked into the simulator you
+timeball keeps that timeline in its own engine, linked into the simulator you
 have. You test the engine by itself, compare it across workloads, and reuse it
 on the next project.
 
 ## How it works
 
 A host simulator keeps its architectural state and its correctness, and tells
-Timeball what work happens: memory accesses, and any other operation with a cost
-it already knows. Timeball puts all of it on one timeline and answers when each
+timeball what work happens: memory accesses, and any other operation with a cost
+it already knows. timeball puts all of it on one timeline and answers when each
 piece completes.
 
 If the address graph looks like this:
@@ -209,7 +209,7 @@ it has compile-time geometry throughout. A cache hit is one hop and never
 touches its successor.
 
 This is a preference on the per-access path, not a system-wide guarantee. The
-earlier claim that Timeball "eliminates virtual dispatch" described a design
+earlier claim that timeball "eliminates virtual dispatch" described a design
 that could not express a shared resource at all, and has been replaced.
 
 ### One record, kept by the engine
@@ -254,7 +254,7 @@ analysis that must tell resources apart should key on the id, not the name. The
 SQLite store keeps the name.
 
 A caller that owns its own tables may add a nullable `metadata` column to `ops`
-holding one JSON object per row. Timeball never writes it; the Perfetto
+holding one JSON object per row. timeball never writes it; the Perfetto
 converter shows each key as a named argument on that row's slice, and rejects a
 row whose metadata is not valid JSON, naming the row.
 
@@ -269,7 +269,7 @@ connection, starts the transaction before constructing the store, and writes its
 own tables keyed by operation ID. Check the store's `Close()` result before
 committing the combined recording; it finalizes only the store's statements. The
 caller must also check its metadata writes and final commit, and publish only a
-complete recording. No caller-specific schema is added to Timeball.
+complete recording. No caller-specific schema is added to timeball.
 
 ### Viewing a recording in Perfetto
 
@@ -382,10 +382,11 @@ ctest --test-dir build
 
 ```cmake
 add_subdirectory(third_party/timeball)
-target_link_libraries(my_host PRIVATE Timeball::engine)
+target_link_libraries(my_host PRIVATE timeball::engine)
 ```
 
-The target carries its include paths and requires C++20. When Timeball is not
+The target carries its include paths and requires C++20. `Timeball::engine`, the
+earlier spelling, is still an alias for it. When timeball is not
 the top-level project it leaves the host's compiler settings alone and builds
 no examples or benchmark; `-DTIMEBALL_BUILD_EXAMPLES=ON` turns them on.
 
@@ -557,7 +558,7 @@ test runs from the committed transcript and does not need Spike installed.
 ## Error handling
 
 No exceptions. Configuration and the per-access path do not return errors:
-Timeball is embedded in someone else's simulator, and throwing into a host
+timeball is embedded in someone else's simulator, and throwing into a host
 that does not expect exceptions behaves unpredictably, quite apart from
 exceptions being frequently disabled in this domain. One query does return
 `tl::expected`: `EventEngine::CompletionOf` is the cycle, or `kPending`, or
@@ -661,7 +662,7 @@ MIT License — see LICENSE file for details.
 
 ```bibtex
 @software{timeball2025,
-  title={Timeball: An Embeddable Timing Engine for Chip Topologies},
+  title={timeball: An Embeddable Timing Engine for Chip Topologies},
   author={TheCloudlet},
   year={2025},
   url={https://github.com/TheCloudlet/timeball}
