@@ -6,8 +6,8 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![C++20](https://img.shields.io/badge/c%2B%2B-20-blue.svg)
-![CI/CD](https://github.com/TheCloudlet/Timeball/workflows/CI%2FCD%20Pipeline/badge.svg)
-![Format](https://github.com/TheCloudlet/Timeball/workflows/Format%20Check/badge.svg)
+![CI/CD](https://github.com/TheCloudlet/timeball/workflows/CI%2FCD%20Pipeline/badge.svg)
+![Format](https://github.com/TheCloudlet/timeball/workflows/Format%20Check/badge.svg)
 
 **Timeball is a timing engine that you link into your own simulator.** You
 describe a chip as a graph of connected units, and Timeball computes when each
@@ -373,7 +373,7 @@ is the same node given its own latency.
 ### Build and test
 
 ```bash
-git clone https://github.com/TheCloudlet/Timeball.git && cd Timeball
+git clone https://github.com/TheCloudlet/timeball.git && cd timeball
 cmake -B build -DTIMEBALL_BUILD_TESTS=ON && cmake --build build
 ctest --test-dir build
 ```
@@ -664,6 +664,6 @@ MIT License — see LICENSE file for details.
   title={Timeball: An Embeddable Timing Engine for Chip Topologies},
   author={TheCloudlet},
   year={2025},
-  url={https://github.com/TheCloudlet/Timeball}
+  url={https://github.com/TheCloudlet/timeball}
 }
 ```
